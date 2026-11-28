@@ -4,6 +4,7 @@
 // Fixtures used: Probe Observer (69160); tables 73390 ("LT TSV Book"), 73391 ("LT TSV Host") and 73396 ("LT TSV Cap Book") and
 //   pages 73392 ("LT TSV Filtered Var") and 73394 ("LT TSV Host Card") of SetValueTableRelation.al; own table 73340, pages
 //   73340..73344, report 73340, test codeunit 73340
+// local object: the control's TableRelation is the property under test.
 // Probe (follow-up of corpus pull request 1646, SetValueTableRelation.al; the cells the review of AL Runner pull request 9418
 //   asks for, point 6 and point 3): TestPage and TestRequestPage <control>.SetValue(Text) on a control with a TableRelation, in the
 //   combinations SetValueTableRelation.al does not measure:
