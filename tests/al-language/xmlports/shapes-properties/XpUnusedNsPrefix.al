@@ -10,7 +10,18 @@
 //   = true without DefaultNamespace; a text attribute with a prefix as the only user; a field attribute with a prefix as the only user; a
 //   table element below the root; UTF-16; the export through an XmlPort variable (SetDestination, Export) and the reporter's line-by-line
 //   read; the import of the exported text into a Direction = Both port. Each export: the exact text BC writes.
-// Result: OBSERVED BELOW (filled in after the observation).
+// Result (BC 27.5, 28.5 and 29.0 alike, measured on local BC on Linux legs that mirror corpus CI): a prefix that no element uses is
+//   still declared. The root element declares every prefix of Namespaces, in the order of the property (xmlns:xsd, then xmlns:xsi),
+//   before anything else; then the root's attributes (a text attribute `Ver="v1"`); then the default xmlns last. The default xmlns
+//   is the DefaultNamespace with UseDefaultNamespace = true, the uri of the root's prefix when the root has NamespacePrefix (the root
+//   is then written without prefix and its child declares xmlns="<DefaultNamespace>"), urn:microsoft-dynamics-nav/xmlports/x<id>
+//   with UseDefaultNamespace = true and no DefaultNamespace, and absent with UseDefaultNamespace = false or not set (DefaultNamespace
+//   alone writes no xmlns). No element below the root declares the unused prefixes again. An element with NamespacePrefix = 'xsi'
+//   is written `<xsi:Status>`. An attribute with NamespacePrefix (text attribute or field attribute) is written without prefix
+//   (`Ver="v1"`, `Id="1"`). UTF-16 writes the same text with encoding="UTF-16". The XmlPort variable (SetDestination, Export) writes
+//   the same text as Xmlport.Export. The Direction = Both port imports its own export (rows 1/one and 2/two: the spaces of "  two  "
+//   are dropped) and fails on a document without the default namespace: "The element <Items> cannot be found in the object
+//   description." (XmlPortElementNotFound), with no rows written.
 // BC versions: 27, 28, 29
 
 // Cell 1: one unused prefix, default namespace on the elements.
@@ -340,14 +351,16 @@ codeunit 75915 "LT XUP Tests"
     procedure XUP_OneUnused_Export()
     begin
         Observer.Observe('export', Helper.TryExportRaw(Xmlport::"LT XUP One Unused", TextEncoding::UTF8));
-        Observer.Finish();
+        Observer.Expect('export', '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\r\n<Response xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="urn:lt:xup:order">\r\n  <Status>ok</Status>\r\n</Response>');
+        Observer.Verify();
     end;
 
     [Test]
     procedure XUP_TwoUnused_Export()
     begin
         Observer.Observe('export', Helper.TryExportRaw(Xmlport::"LT XUP Two Unused", TextEncoding::UTF8));
-        Observer.Finish();
+        Observer.Expect('export', '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\r\n<Response xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="urn:lt:xup:order">\r\n  <Status>ok</Status>\r\n</Response>');
+        Observer.Verify();
     end;
 
     [Test]
@@ -368,7 +381,8 @@ codeunit 75915 "LT XUP Tests"
             Result += Line;
         end;
         Observer.Observe('read by line', Result);
-        Observer.Finish();
+        Observer.Expect('read by line', '<?xml version="1.0" encoding="UTF-8" standalone="no"?><Response xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="urn:lt:xup:order">  <Status>ok</Status></Response>');
+        Observer.Verify();
     end;
 
     [Test]
@@ -390,49 +404,56 @@ codeunit 75915 "LT XUP Tests"
         if Big.Length() > 0 then
             Big.GetSubText(Result, 1, Big.Length());
         Observer.Observe('instance export', Result);
-        Observer.Finish();
+        Observer.Expect('instance export', '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\r\n<Response xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="urn:lt:xup:order">\r\n  <Status>ok</Status>\r\n</Response>');
+        Observer.Verify();
     end;
 
     [Test]
     procedure XUP_MixRootUsed_Export()
     begin
         Observer.Observe('export', Helper.TryExportRaw(Xmlport::"LT XUP Mix Root Used", TextEncoding::UTF8));
-        Observer.Finish();
+        Observer.Expect('export', '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\r\n<Response xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.w3.org/2001/XMLSchema">\r\n  <Status xmlns="urn:lt:xup:order">ok</Status>\r\n</Response>');
+        Observer.Verify();
     end;
 
     [Test]
     procedure XUP_MixChildUsed_Export()
     begin
         Observer.Observe('export', Helper.TryExportRaw(Xmlport::"LT XUP Mix Child Used", TextEncoding::UTF8));
-        Observer.Finish();
+        Observer.Expect('export', '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\r\n<Response xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="urn:lt:xup:order">\r\n  <xsi:Status>ok</xsi:Status>\r\n</Response>');
+        Observer.Verify();
     end;
 
     [Test]
     procedure XUP_NoDefault_Export()
     begin
         Observer.Observe('export', Helper.TryExportRaw(Xmlport::"LT XUP No Default", TextEncoding::UTF8));
-        Observer.Finish();
+        Observer.Expect('export', '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\r\n<Response xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\r\n  <Status>ok</Status>\r\n</Response>');
+        Observer.Verify();
     end;
 
     [Test]
     procedure XUP_DnNoUdn_Export()
     begin
         Observer.Observe('export', Helper.TryExportRaw(Xmlport::"LT XUP Dn No Udn", TextEncoding::UTF8));
-        Observer.Finish();
+        Observer.Expect('export', '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\r\n<Response xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\r\n  <Status>ok</Status>\r\n</Response>');
+        Observer.Verify();
     end;
 
     [Test]
     procedure XUP_UdnNoDn_Export()
     begin
         Observer.Observe('export', Helper.TryExportRaw(Xmlport::"LT XUP Udn No Dn", TextEncoding::UTF8));
-        Observer.Finish();
+        Observer.Expect('export', '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\r\n<Response xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="urn:microsoft-dynamics-nav/xmlports/x75904">\r\n  <Status>ok</Status>\r\n</Response>');
+        Observer.Verify();
     end;
 
     [Test]
     procedure XUP_TextAttr_Export()
     begin
         Observer.Observe('export', Helper.TryExportRaw(Xmlport::"LT XUP Text Attr", TextEncoding::UTF8));
-        Observer.Finish();
+        Observer.Expect('export', '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\r\n<Response xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Ver="v1" xmlns="urn:lt:xup:order">\r\n  <Status>ok</Status>\r\n</Response>');
+        Observer.Verify();
     end;
 
     [Test]
@@ -440,7 +461,8 @@ codeunit 75915 "LT XUP Tests"
     begin
         Helper.Seed();
         Observer.Observe('export', Helper.TryExportRaw(Xmlport::"LT XUP Field Attr", TextEncoding::UTF8));
-        Observer.Finish();
+        Observer.Expect('export', '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\r\n<Items xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\r\n  <Item Id="1">\r\n    <Name>one</Name>\r\n  </Item>\r\n  <Item Id="2">\r\n    <Name>  two  </Name>\r\n  </Item>\r\n</Items>');
+        Observer.Verify();
     end;
 
     [Test]
@@ -448,14 +470,16 @@ codeunit 75915 "LT XUP Tests"
     begin
         Helper.Seed();
         Observer.Observe('export', Helper.TryExportRaw(Xmlport::"LT XUP Table", TextEncoding::UTF8));
-        Observer.Finish();
+        Observer.Expect('export', '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\r\n<Items xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="urn:lt:xup:order">\r\n  <Item Id="1">\r\n    <Name>one</Name>\r\n  </Item>\r\n  <Item Id="2">\r\n    <Name>  two  </Name>\r\n  </Item>\r\n</Items>');
+        Observer.Verify();
     end;
 
     [Test]
     procedure XUP_TwoUnusedUtf16_Export()
     begin
         Observer.Observe('export', Helper.TryExportRaw(Xmlport::"LT XUP Two Unused Utf16", TextEncoding::UTF16));
-        Observer.Finish();
+        Observer.Expect('export', '<?xml version="1.0" encoding="UTF-16" standalone="no"?>\r\n<Response xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="urn:lt:xup:order">\r\n  <Status>ok</Status>\r\n</Response>');
+        Observer.Verify();
     end;
 
     [Test]
@@ -474,6 +498,11 @@ codeunit 75915 "LT XUP Tests"
         Commit();
         Observer.Observe('import plain', Helper.TryImport(Xmlport::"LT XUP Both", '<Items><Item Id="7"><Name>seven</Name></Item></Items>', false));
         Observer.Observe('rows after plain', Helper.Rows());
-        Observer.Finish();
+        Observer.Expect('export', '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\r\n<Items xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="urn:lt:xup:order">\r\n  <Item Id="1">\r\n    <Name>one</Name>\r\n  </Item>\r\n  <Item Id="2">\r\n    <Name>  two  </Name>\r\n  </Item>\r\n</Items>');
+        Observer.Expect('import own export', 'ok');
+        Observer.Expect('rows after import', '1/one/0/false//0;2/two/0/false//0;');
+        Observer.Expect('import plain', 'error:The element <Items> cannot be found in the object description.|XmlPortElementNotFound');
+        Observer.Expect('rows after plain', '');
+        Observer.Verify();
     end;
 }
