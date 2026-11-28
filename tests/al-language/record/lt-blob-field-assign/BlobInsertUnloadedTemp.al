@@ -17,7 +17,8 @@
 //   Readings as in BlobInsertUnloaded.al: own = the record's own Blobs (HasValue and the text a stream reads), before and stored =
 //   the row read again with Get, HasValue before and the Blobs after CalcFields; R1 adds len_* (Blob.Length) and calc_* (after
 //   CalcFields on the record itself).
-//   Observe round: every test ends with Observer.Finish(), which fails the test with the readings (OBSERVE:...); nothing is asserted yet.
+//   BC 28 and later: the readings of a local BC 29.0.54011.57673 (Linux, W1, en-US session). BC 27.5: an observe round, not measured
+//   yet.
 // BC versions: 27, 28, 29 by CI
 codeunit 73784 "LT BIU Temp Read Tests"
 {
@@ -107,7 +108,19 @@ codeunit 73784 "LT BIU Temp Read Tests"
         T.Get('T1');
         T.Rename('T2');
         Reads(Observer, T);
+#if BC28PLUS
+        Observer.Expect('own_body', 'hasValue=Yes text=[]');
+        Observer.Expect('own_raw', 'hasValue=Yes text=[]');
+        Observer.Expect('own_ext', 'hasValue=Yes text=[]');
+        Observer.Expect('len', 'body=3 raw=7 ext=7');
+        Observer.Expect('calc_body', 'hasValue=No text=[]');
+        Observer.Expect('calc_raw', 'hasValue=No text=[]');
+        Observer.Expect('calc_ext', 'hasValue=No text=[]');
+        Observer.Expect('calc_len', 'body=0 raw=0 ext=0');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -119,7 +132,19 @@ codeunit 73784 "LT BIU Temp Read Tests"
         SeedTempRows(T);
         T.Get('T1');
         Reads(Observer, T);
+#if BC28PLUS
+        Observer.Expect('own_body', 'hasValue=Yes text=[]');
+        Observer.Expect('own_raw', 'hasValue=Yes text=[]');
+        Observer.Expect('own_ext', 'hasValue=Yes text=[]');
+        Observer.Expect('len', 'body=3 raw=7 ext=7');
+        Observer.Expect('calc_body', 'hasValue=Yes text=[mem]');
+        Observer.Expect('calc_raw', 'hasValue=Yes text=[mem-raw]');
+        Observer.Expect('calc_ext', 'hasValue=Yes text=[mem-ext]');
+        Observer.Expect('calc_len', 'body=3 raw=7 ext=7');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -134,7 +159,19 @@ codeunit 73784 "LT BIU Temp Read Tests"
         T.SetRange("No.");
         T.Rename('T2');
         Reads(Observer, T);
+#if BC28PLUS
+        Observer.Expect('own_body', 'hasValue=Yes text=[]');
+        Observer.Expect('own_raw', 'hasValue=Yes text=[]');
+        Observer.Expect('own_ext', 'hasValue=Yes text=[]');
+        Observer.Expect('len', 'body=3 raw=7 ext=7');
+        Observer.Expect('calc_body', 'hasValue=No text=[]');
+        Observer.Expect('calc_raw', 'hasValue=No text=[]');
+        Observer.Expect('calc_ext', 'hasValue=No text=[]');
+        Observer.Expect('calc_len', 'body=0 raw=0 ext=0');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -148,7 +185,18 @@ codeunit 73784 "LT BIU Temp Read Tests"
         T.FindFirst();
         T.SetRange("No.");
         RenameInsert(Observer, T);
+#if BC28PLUS
+        Observer.Expect('own_body', 'hasValue=Yes text=[]');
+        Observer.Expect('own_raw', 'hasValue=Yes text=[]');
+        Observer.Expect('own_ext', 'hasValue=Yes text=[]');
+        Observer.Expect('before', 'body=Yes raw=Yes ext=Yes');
+        Observer.Expect('stored_body', 'hasValue=No text=[]');
+        Observer.Expect('stored_raw', 'hasValue=No text=[]');
+        Observer.Expect('stored_ext', 'hasValue=No text=[]');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -162,7 +210,19 @@ codeunit 73784 "LT BIU Temp Read Tests"
         T.Next();
         Observer.Observe('read', T."No.");
         RenameInsert(Observer, T);
+#if BC28PLUS
+        Observer.Expect('read', 'T1');
+        Observer.Expect('own_body', 'hasValue=Yes text=[]');
+        Observer.Expect('own_raw', 'hasValue=Yes text=[]');
+        Observer.Expect('own_ext', 'hasValue=Yes text=[]');
+        Observer.Expect('before', 'body=Yes raw=Yes ext=Yes');
+        Observer.Expect('stored_body', 'hasValue=No text=[]');
+        Observer.Expect('stored_raw', 'hasValue=No text=[]');
+        Observer.Expect('stored_ext', 'hasValue=No text=[]');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -179,7 +239,19 @@ codeunit 73784 "LT BIU Temp Read Tests"
         T.GetBySystemId(Id);
         Observer.Observe('read', T."No.");
         RenameInsert(Observer, T);
+#if BC28PLUS
+        Observer.Expect('read', 'T0');
+        Observer.Expect('own_body', 'hasValue=Yes text=[]');
+        Observer.Expect('own_raw', 'hasValue=Yes text=[]');
+        Observer.Expect('own_ext', 'hasValue=Yes text=[]');
+        Observer.Expect('before', 'body=Yes raw=Yes ext=Yes');
+        Observer.Expect('stored_body', 'hasValue=No text=[]');
+        Observer.Expect('stored_raw', 'hasValue=No text=[]');
+        Observer.Expect('stored_ext', 'hasValue=No text=[]');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // The SystemIds of the temporary rows SeedTempRows inserts.
@@ -197,7 +269,14 @@ codeunit 73784 "LT BIU Temp Read Tests"
         T.Get('T1');
         Observer.Observe('t1_null', Format(IsNullGuid(T.SystemId)));
         Observer.Observe('same', Format(T.SystemId = Id0));
+#if BC28PLUS
+        Observer.Expect('t0_null', 'Yes');
+        Observer.Expect('t1_null', 'Yes');
+        Observer.Expect('same', 'Yes');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // GetBySystemId with the SystemIds given: reads T1.
@@ -212,7 +291,19 @@ codeunit 73784 "LT BIU Temp Read Tests"
         T.GetBySystemId('{00000000-0000-0000-0000-0000000000A1}');
         Observer.Observe('read', T."No.");
         RenameInsert(Observer, T);
+#if BC28PLUS
+        Observer.Expect('read', 'T1');
+        Observer.Expect('own_body', 'hasValue=Yes text=[]');
+        Observer.Expect('own_raw', 'hasValue=Yes text=[]');
+        Observer.Expect('own_ext', 'hasValue=Yes text=[]');
+        Observer.Expect('before', 'body=Yes raw=Yes ext=Yes');
+        Observer.Expect('stored_body', 'hasValue=No text=[]');
+        Observer.Expect('stored_raw', 'hasValue=No text=[]');
+        Observer.Expect('stored_ext', 'hasValue=No text=[]');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -226,7 +317,18 @@ codeunit 73784 "LT BIU Temp Read Tests"
         T.FindFirst();
         T.SetRange("No.");
         NewKeyInsert(Observer, T);
+#if BC28PLUS
+        Observer.Expect('own_body', 'hasValue=Yes text=[]');
+        Observer.Expect('own_raw', 'hasValue=Yes text=[]');
+        Observer.Expect('own_ext', 'hasValue=Yes text=[]');
+        Observer.Expect('before', 'body=Yes raw=Yes ext=Yes');
+        Observer.Expect('stored_body', 'hasValue=No text=[]');
+        Observer.Expect('stored_raw', 'hasValue=No text=[]');
+        Observer.Expect('stored_ext', 'hasValue=No text=[]');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -243,7 +345,19 @@ codeunit 73784 "LT BIU Temp Read Tests"
         T.GetBySystemId(Id);
         Observer.Observe('read', T."No.");
         NewKeyInsert(Observer, T);
+#if BC28PLUS
+        Observer.Expect('read', 'T0');
+        Observer.Expect('own_body', 'hasValue=Yes text=[]');
+        Observer.Expect('own_raw', 'hasValue=Yes text=[]');
+        Observer.Expect('own_ext', 'hasValue=Yes text=[]');
+        Observer.Expect('before', 'body=Yes raw=Yes ext=Yes');
+        Observer.Expect('stored_body', 'hasValue=No text=[]');
+        Observer.Expect('stored_raw', 'hasValue=No text=[]');
+        Observer.Expect('stored_ext', 'hasValue=No text=[]');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -265,6 +379,17 @@ codeunit 73784 "LT BIU Temp Read Tests"
         C.Insert();
         Probe.Own(Observer, C);
         Probe.Stored(Observer, 'NEW');
+#if BC28PLUS
+        Observer.Expect('own_body', 'hasValue=Yes text=[]');
+        Observer.Expect('own_raw', 'hasValue=Yes text=[]');
+        Observer.Expect('own_ext', 'hasValue=Yes text=[]');
+        Observer.Expect('before', 'body=No raw=No ext=No');
+        Observer.Expect('stored_body', 'hasValue=No text=[]');
+        Observer.Expect('stored_raw', 'hasValue=No text=[]');
+        Observer.Expect('stored_ext', 'hasValue=No text=[]');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 }
