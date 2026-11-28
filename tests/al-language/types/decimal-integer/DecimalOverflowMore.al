@@ -11,7 +11,8 @@
 //     beside a Decimal in /; a result between the .NET maximum (79228162514264337593543950335) and 2 * MAX18;
 //   - round-down: a product (5659154465304595540000000000 * 14 = 79228162514264337560000000000) and a quotient
 //     (55459713759985036300000000000 / 0.7 = 79228162514264337571428571428.57...) whose 18-digit round-up passes the .NET maximum,
-//     and a sum with a BigInteger operand (MAX18 + 60000000000, + 93543950335, + 93543950336);
+//     and a sum with a BigInteger operand (MAX18 + 60000000000, + 93543950335, + 93543950336); each round-down result is also
+//     compared with MAX18 for exact equality, beside two controls that are not MAX18;
 //   - field range: Validate, FieldRef.Value, FieldRef.Validate and a temporary record past +-999,999,999,999,999.99, and the value
 //     999,999,999,999,999.995 (a variable, Format(D, 0, 9) evaluated back into the target, a field, Validate, FieldRef and a
 //     temporary record).
@@ -203,6 +204,19 @@ codeunit 73110 "LT DOX Probe"
                     B := 93543950336L;
                     R := D + B;
                 end;
+            // Controls of the equality cells: results that are not MAX18.
+            'mul_rounddown_ctrl':
+                begin
+                    D := 5659154465304595530000000000.0;
+                    N := 14;
+                    R := D * N;
+                end;
+            'sub_max18_big100000000000':
+                begin
+                    D := 79228162514264337500000000000.0;
+                    B := 100000000000L;
+                    R := D - B;
+                end;
             'add_big_max18':
                 begin
                     B := 60000000000L;
@@ -295,6 +309,27 @@ codeunit 73110 "LT DOX Probe"
         ClearLastError();
         RR.Close();
         Observer.Observe(Name, T);
+    end;
+    // The equality cells: the cell runs as in Cell, then <name>_eq records whether the variable target equals MAX18, built as
+    // the Max of DecimalOverflowCells.al builds it (the literal 79228162514264337593543950335.0) and as the 18-digit literal.
+    procedure EqualCell(var Observer: Codeunit "Probe Observer"; Name: Text)
+    var
+        Row: Record "LT DOX Row";
+        TempRow: Record "LT DOX Row" temporary;
+        RR: RecordRef;
+        FR: FieldRef;
+        R: Decimal;
+        Ok: Boolean;
+    begin
+        R := 1;
+        RR.Open(Database::"LT DOX Row");
+        FR := RR.Field(2);
+        ClearLastError();
+        Ok := TryCell(Name, R, Row, TempRow, FR);
+        ClearLastError();
+        RR.Close();
+        Observer.Observe(Name + '_eq', StrSubstNo('ok=%1; R = Max()=%2; R = 79228162514264337500000000000=%3', Ok, R = Dov.Max(),
+            R = 79228162514264337500000000000.0));
     end;
 }
 
@@ -416,6 +451,39 @@ codeunit 73111 "LT DOX Overflow Tests"
         Observer.Expect('add_max18_big93543950335', 'ok: big 79228162514264.3375 e15');
         Observer.Expect('add_max18_big93543950336', 'E: Value was either too large or too small for a Decimal. | AL:Overflow; after 1');
         Observer.Expect('add_big_max18', 'ok: big 79228162514264.3375 e15');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
+        Observer.Finish();
+#endif
+    end;
+
+    // Whether each round-down result equals MAX18 exactly; mul_rounddown_ctrl, sub_max18_big100000000000 and the overflow cell
+    // add_max18_big93543950336 (the target keeps 1) are the controls that do not.
+    [Test]
+    procedure RoundDown_Equality()
+    var
+        Observer: Codeunit "Probe Observer";
+        Probe: Codeunit "LT DOX Probe";
+    begin
+        Probe.EqualCell(Observer, 'mul_rounddown_int14');
+        Probe.EqualCell(Observer, 'mul_rounddown_dec14');
+        Probe.EqualCell(Observer, 'div_rounddown_07');
+        Probe.EqualCell(Observer, 'add_max18_big60000000000');
+        Probe.EqualCell(Observer, 'add_max18_big93543950335');
+        Probe.EqualCell(Observer, 'add_big_max18');
+        Probe.EqualCell(Observer, 'mul_rounddown_ctrl');
+        Probe.EqualCell(Observer, 'sub_max18_big100000000000');
+        Probe.EqualCell(Observer, 'add_max18_big93543950336');
+#if BC28PLUS
+        Observer.Expect('mul_rounddown_int14_eq', 'ok=Yes; R = Max()=Yes; R = 79228162514264337500000000000=Yes');
+        Observer.Expect('mul_rounddown_dec14_eq', 'ok=Yes; R = Max()=Yes; R = 79228162514264337500000000000=Yes');
+        Observer.Expect('div_rounddown_07_eq', 'ok=Yes; R = Max()=Yes; R = 79228162514264337500000000000=Yes');
+        Observer.Expect('add_max18_big60000000000_eq', 'ok=Yes; R = Max()=Yes; R = 79228162514264337500000000000=Yes');
+        Observer.Expect('add_max18_big93543950335_eq', 'ok=Yes; R = Max()=Yes; R = 79228162514264337500000000000=Yes');
+        Observer.Expect('add_big_max18_eq', 'ok=Yes; R = Max()=Yes; R = 79228162514264337500000000000=Yes');
+        Observer.Expect('mul_rounddown_ctrl_eq', 'ok=Yes; R = Max()=No; R = 79228162514264337500000000000=No');
+        Observer.Expect('sub_max18_big100000000000_eq', 'ok=Yes; R = Max()=No; R = 79228162514264337500000000000=No');
+        Observer.Expect('add_max18_big93543950336_eq', 'ok=No; R = Max()=No; R = 79228162514264337500000000000=No');
         Observer.Verify();
 #else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
