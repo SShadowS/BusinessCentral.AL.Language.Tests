@@ -28,7 +28,7 @@
 //   Observer.Finish() and the values the BC 27.5, 28.5 and 29.0 legs reported went into the Expect calls.
 // Measured on: BC 27.5, 28.5 and 29.0 in corpus CI (SaaS shards), the same on all three except that column 18 exists from BC 28 and columns 19 - 21 and the layout parts from BC 29.
 //   The row of a layout a report extension declares (RDLC, Word, Excel, obsolete Excel, Custom, and the three layout parts) has the same columns as the row of the same layout in the
-//   report itself: Report ID of the extended report, Name the layout's name, Runtime Package ID a guid other than this app's (the same as for the report's own layouts in UgReportLayoutList.al), Caption the
+//   report itself: Report ID of the extended report, Name the layout's name, Runtime Package ID a non-null guid that is not this app's App ID (which package it belongs to is not measured here; UgReportLayoutList.al Y17 pins the package of a report's own layout), Caption the
 //   Caption or the name, Description the Summary or the name, Application ID this app (the app that declares the extension), Report Name the extended report's Caption (report 97784:
 //   'LT RLE Caption Differs'; for the Y67 extension of report 1306 'Sales - Invoice'), Layout Publisher '<app name> by <publisher>' of the app that declares the extension (for the extension of report 1306 this app, not
 //   Base Application), User Defined No, ReportIsInstalled Yes, IsObsolete Yes only for the obsolete layout, ExcelLayoutMultipleDataSheets Default, Layout Status Approved (also for the Custom
