@@ -20,7 +20,7 @@
 //   - 'xyz' in lower case with XYZA inside the filter and XYZ outside it.
 //   Each cell opens the page with OpenEdit, calls SetValue inside a TryFunction and records: set = "ok" or "E: <GetLastErrorText> |
 //   <GetLastErrorCode>"; value = the control's Value() afterwards; stored = the record after Close for table fields.
-//   Observe round: every test ends with Observer.Finish(), which fails the test with the readings (OBSERVE:...); nothing is asserted yet.
+//   BC 28 and later: the readings of a local BC 29 (Linux, W1, en-US session). BC 27.5: an observe round, not measured yet.
 // BC versions: 27, 28, 29 by CI
 table 73220 "LT TSG ML Book"
 {
@@ -371,7 +371,13 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer.Observe('set', Outcome(TrySetCodeName(TP, 'Unique Name')));
         Observer.Observe('value', TP.BookCtl.Value());
         TP.Close();
+#if BC28PLUS
+        Observer.Expect('set', 'E: Validation error for Field: BookCtl,  Message = ''The following field must be included into the table''s primary key: Field: Name Table: LT TSV Book'' | TestValidation');
+        Observer.Expect('value', '');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // A Text[10] variable related to the CaptionML table: other case, and no row.
@@ -389,7 +395,15 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer.Observe('set_zzz', Outcome(TrySetMl(TP, 'zzz')));
         Observer.Observe('value_zzz', TP.BookCtl.Value());
         TP.Close();
+#if BC28PLUS
+        Observer.Expect('set_ml1', 'ok');
+        Observer.Expect('value_ml1', 'ML1');
+        Observer.Expect('set_zzz', 'E: Validation error for Field: BookCtl,  Message = ''The Multi Book does not exist. Identification fields and values: Multi No.=''ZZZ'''' | TestValidation');
+        Observer.Expect('value_zzz', 'ML1');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // A Code[10] variable related to the SQLDataType = Integer table: an exact key, a prefix ('1': 12 and 123), and no row.
@@ -409,7 +423,17 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer.Observe('set_99', Outcome(TrySetSql(TP, '99')));
         Observer.Observe('value_99', TP.BookCtl.Value());
         TP.Close();
+#if BC28PLUS
+        Observer.Expect('set_5', 'ok');
+        Observer.Expect('value_5', '5');
+        Observer.Expect('set_1', 'ok');
+        Observer.Expect('value_1', '12');
+        Observer.Expect('set_99', 'E: Validation error for Field: BookCtl,  Message = ''The LT TSG Sql Book does not exist. Identification fields and values: Code=''99'''' | TestValidation');
+        Observer.Expect('value_99', '12');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // A table field with an if relation: Kind 1 (the Book table) typed 'mn', Kind 2 (the captioned table) typed 'cb1' and 'mn'.
@@ -439,7 +463,14 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         IfHostCell(Observer, 1, 'mn');
+#if BC28PLUS
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', 'MNO');
+        Observer.Expect('stored', 'MNO');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -448,7 +479,14 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         IfHostCell(Observer, 2, 'cb1');
+#if BC28PLUS
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', 'CB1');
+        Observer.Expect('stored', 'CB1');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -457,7 +495,14 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         IfHostCell(Observer, 2, 'mn');
+#if BC28PLUS
+        Observer.Expect('set', 'E: Validation error for Field: BookCtl,  Message = ''The field Book Code of table LT TSG If Host contains a value (MN) that cannot be found in the related table (Captioned Book). (Select Refresh to discard errors)'' | TestValidation');
+        Observer.Expect('value', '');
+        Observer.Expect('stored', '');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // A non-English session: GlobalLanguage 1043, then 'mn' and 'zzz' on the Text[10] page; GlobalLanguage set back to 1033.
@@ -477,7 +522,15 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer.Observe('value_zzz', TP.BookCtl.Value());
         TP.Close();
         GlobalLanguage(1033);
+#if BC28PLUS
+        Observer.Expect('set_mn', 'ok');
+        Observer.Expect('value_mn', 'MNO');
+        Observer.Expect('set_zzz', 'E: Validatiefout voor veld: BookCtl, bericht = ''LT TSV Book bestaat niet. Identificatievelden en -waarden: Code=''ZZZ'''' | TestValidation');
+        Observer.Expect('value_zzz', 'MNO');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // The CaptionML table in the 1043 session: a row in other case, and no row.
@@ -497,7 +550,15 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer.Observe('value_zzz', TP.BookCtl.Value());
         TP.Close();
         GlobalLanguage(1033);
+#if BC28PLUS
+        Observer.Expect('set_ml1', 'ok');
+        Observer.Expect('value_ml1', 'ML1');
+        Observer.Expect('set_zzz', 'E: Validatiefout voor veld: BookCtl, bericht = ''Meervoudig Boek bestaat niet. Identificatievelden en -waarden: Meervoudig Nr.=''ZZZ'''' | TestValidation');
+        Observer.Expect('value_zzz', 'ML1');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // A typed text longer than the key: 11 characters into the Text[10] control related to a Code[10] key.
@@ -507,7 +568,13 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         TextCell(Observer, 'ABCDEFGHIJK', '');
+#if BC28PLUS
+        Observer.Expect('set', 'E: Validation error for Field: BookCtl,  Message = ''The length of the string is 11, but it must be less than or equal to 10 characters. Value: ABCDEFGHIJK'' | TestValidation');
+        Observer.Expect('value', '');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // SetValue(5), an Integer, on the Text[10] page: without and with a row '5'.
@@ -523,7 +590,13 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer.Observe('set', Outcome(TrySetTextInteger(TP, 5)));
         Observer.Observe('value', TP.BookCtl.Value());
         TP.Close();
+#if BC28PLUS
+        Observer.Expect('set', 'E: Validation error for Field: BookCtl,  Message = ''The LT TSV Book does not exist. Identification fields and values: Code=''5'''' | TestValidation');
+        Observer.Expect('value', '');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -538,7 +611,13 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer.Observe('set', Outcome(TrySetTextInteger(TP, 5)));
         Observer.Observe('value', TP.BookCtl.Value());
         TP.Close();
+#if BC28PLUS
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', '5');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // The filtered variable: 'XY' with XY (Active, exact inside) and XYA (not Active, a longer key outside).
@@ -548,7 +627,13 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         FilteredCell(Observer, 'XY', 'XY');
+#if BC28PLUS
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', 'XY');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // The filtered variable: 'xyz' with XYZA (Active) and XYZ (not Active).
@@ -558,7 +643,13 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         FilteredCell(Observer, 'xyz', 'XYZA');
+#if BC28PLUS
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', 'XYZA');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // A completed key longer than the control: a Code[3] variable and a Code[3] table field typed 'AB', the only row ABCDE.
@@ -574,7 +665,13 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer.Observe('set', Outcome(TrySetShort(TP, 'AB')));
         Observer.Observe('value', TP.BookCtl.Value());
         TP.Close();
+#if BC28PLUS
+        Observer.Expect('set', 'E: Validation error for Field: BookCtl,  Message = ''The length of the string is 5, but it must be less than or equal to 3 characters. Value: ABCDE'' | TestValidation');
+        Observer.Expect('value', '');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -594,7 +691,14 @@ codeunit 73220 "LT TSG SetValue Tests"
         TP.Close();
         ShortHost.Get(1);
         Observer.Observe('stored', ShortHost."Short Code");
+#if BC28PLUS
+        Observer.Expect('set', 'E: Validation error for Field: BookCtl,  Message = ''The length of the string is 5, but it must be less than or equal to 3 characters. Value: ABCDE (Select Refresh to discard errors)'' | TestValidation');
+        Observer.Expect('value', '');
+        Observer.Expect('stored', '');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // Leading and trailing spaces: ' mn' and 'mn ' on the Text[10] page.
@@ -604,7 +708,13 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         TextCell(Observer, ' mn', '');
+#if BC28PLUS
+        Observer.Expect('set', 'E: Validation error for Field: BookCtl,  Message = ''The LT TSV Book does not exist. Identification fields and values: Code=''MN'''' | TestValidation');
+        Observer.Expect('value', '');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -613,6 +723,12 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         TextCell(Observer, 'mn ', '');
+#if BC28PLUS
+        Observer.Expect('set', 'E: Validation error for Field: BookCtl,  Message = ''The LT TSV Book does not exist. Identification fields and values: Code=''MN'''' | TestValidation');
+        Observer.Expect('value', '');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 }
