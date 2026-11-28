@@ -7,7 +7,8 @@
 //     from a procedure that returns Code[20] or Text, and T := FR.Value() into a Text, for comparison. Does the field's
 //     DecimalPlaces shape the text (1,234.50 / 1,235) or is it the plain Format of the value (1,234.5)?
 //   - The DateTime 9999-12-31 23:59:59.999 (which a table field does not take: the Insert's error) and 9999-12-30 23:59:59.999
-//     into a Duration and an Option, the late end of the DateTime cells.
+//     into a Duration and an Option, the late end of the DateTime cells; and 9999-12-31 23:59:59 (no milliseconds), the last whole
+//     second of the range, into a Duration and an Option.
 //   - 0DT into an Option " ",A,B.
 //   Each cell runs in a TryFunction and records "ok: <result>" (Format(.., 0, 9) for Duration and Option) or "E: <GetLastErrorText> |
 //   <GetLastErrorCode>".
@@ -26,7 +27,7 @@
 //     Duration it gives P3652424DT0H0M0.001S, into an Option 'The value "12/31/9999 12:00 AM" can't be evaluated into type
 //     Option.' (Evaluate:Conversion).
 //   - 0DT into an Option " ",A,B: 'The value "" can't be evaluated into type Option.' (Evaluate:Conversion), as into A,B,C.
-//   - 9999-12-31 23:59:59, the end of the range the field takes: into a Duration P3652424DT23H59M59.001S, into an Option 'The value
+//   - 9999-12-31 23:59:59 (no milliseconds), the last whole second of the range: into a Duration P3652424DT23H59M59.001S, into an Option 'The value
 //     "12/31/9999 11:59 PM" can't be evaluated into type Option.' (Evaluate:Conversion). On BC 27.5 (CI run 46138877938, both 27.5 legs
 //     alike) the Duration is the same and the Option cell gives 'Unable to convert from Microsoft.Dynamics.Nav.Runtime.NavDateTime to
 //     System.Int32.' (Conversion): only that Expect line is guarded.
@@ -214,15 +215,13 @@ codeunit 73385 "LT FDP Tests"
     begin
         Probe.Cell(Observer, 5, CreateDateTime(99991230D, 235959.999T), 'duration');
         Probe.Cell(Observer, 5, CreateDateTime(99991230D, 235959.999T), 'option');
+        Observer.Expect('duration', 'ok: P3652424DT0H0M0.001S');
 #if BC28PLUS
-        Observer.Expect('duration', 'ok: P3652424DT0H0M0.001S');
         Observer.Expect('option', 'E: The value "12/31/9999 12:00 AM" can''t be evaluated into type Option. | Evaluate:Conversion');
-        Observer.Verify();
 #else // BC 27.5 gives another result, measured by this PR's CI run 46137073537 on 27.5 (both 27.5 legs agree)
-        Observer.Expect('duration', 'ok: P3652424DT0H0M0.001S');
         Observer.Expect('option', 'E: Unable to convert from Microsoft.Dynamics.Nav.Runtime.NavDateTime to System.Int32. | Conversion');
-        Observer.Verify();
 #endif
+        Observer.Verify();
     end;
 
     // 0DT into an Option " ",A,B.
@@ -242,7 +241,7 @@ codeunit 73385 "LT FDP Tests"
 #endif
     end;
 
-    // The end of the range a table field takes, 9999-12-31 23:59:59 (no milliseconds), into a Duration and an Option A,B,C.
+    // 9999-12-31 23:59:59 (no milliseconds), the last whole second of the range, into a Duration and an Option A,B,C.
     [Test]
     procedure EndOfRangeDateTime_DurationOption()
     var
