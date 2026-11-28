@@ -1,6 +1,8 @@
 // @expect AL0175 | Operator '+=' cannot be applied to operands of type 'Integer' and 'Joker'
+// @from 29
 // An Integer += FieldRef.Value(): the value is typed Joker, and AL has no '+=' between Integer and Joker (al-runner issue 9283).
-// A plain assignment from the same value, I := FR.Value(), compiles.
+// A plain assignment from a FieldRef value compiles: tests/al-language/record/PZFindDirections.al:76.
+// Measured with AL compiler 18.0.43.1464 on BC 29 symbols; BC 27 (AL 16) and BC 28 (AL 17) are not measured yet.
 table 53834 "MNC Counter 3834"
 {
     fields
