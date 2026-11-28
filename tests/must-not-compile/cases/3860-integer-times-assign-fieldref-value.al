@@ -1,7 +1,6 @@
 // @expect AL0175 | Operator '*=' cannot be applied to operands of type 'Integer' and 'Joker'
-// @from 29
 // An Integer *= FieldRef.Value(). (al-runner issue 9283)
-// Measured with AL compiler 18.0.43.1464 on BC 29 symbols only; BC 27 (AL 16) and BC 28 (AL 17) are not measured yet.
+// Measured with AL 16.2.28.57946 (BC 27, runtime 16.0), AL 17.0.34.45391 (BC 28, runtime 17.0) and AL 18.0.43.1464 (BC 29, runtime 18.0): the same diagnostic on each.
 table 53860 "MNC Counter 53860"
 {
     fields
