@@ -20,7 +20,28 @@
 //   Each cell opens the page with OpenEdit (or OpenNew), calls SetValue inside a TryFunction and records: set = "ok" or
 //   "E: <GetLastErrorText> | <GetLastErrorCode>"; value = the control's Value() afterwards; validated = the OnValidate count where
 //   the page shows one; stored = the record after Close for table fields.
-//   Observe round: every test ends with Observer.Finish(), which fails the test with the readings (OBSERVE:...); nothing is asserted yet.
+//   Measured on a local BC 29.0.54011.57673 service tier (Linux, W1, en-US session) on 2026-11-28 with an invented app holding
+//   these objects (AL 18.0.43.1464, run by al runtests of AL tool 18.1.43.24897); the values are those readings, turned into
+//   Expect and Verify by convert.py verbatim, asserted on BC 28 and later (#if BC28PLUS). On BC 27.5 (#else) every test is an
+//   observe round, red on purpose: it ends with Finish(); one following commit asserts the 27.5 readings.
+//   Facts (BC 29.0.54011.57673):
+//   - A Code[10] variable on a request page behaves like one on a page: 'abc' gives ABC, 'mn' gives MNO, 'zzz' fails with "The LT
+//     TSV Book does not exist. Identification fields and values: Code='ZZZ'".
+//   - Request-page Text variables: with Active = true, the exact key XYZ outside the filter is taken (XYZ), its prefix 'XY' fails
+//     with the does-not-exist text, and 'mn' inside gives MNO; related to Name, 'Unique Name' fails with the primary-key text;
+//     related by "LT TSV Book"."Code", 'mn' gives MNO; related to the captioned table, 'zzz' fails with "The Captioned Book does
+//     not exist. Identification fields and values: Book No.='ZZZ'".
+//   - A Code[10] variable related to the captioned table: 'cb1' gives CB1, 'zzz' gives the captioned does-not-exist text. Holding
+//     ABC: 'mn' gives MNO (OnValidate ran once), 'zzz' fails and the control keeps ABC (OnValidate did not run). Related by
+//     "LT TSV Book"."Code": 'mn' gives MNO, 'zzz' the does-not-exist text.
+//   - A const where() on the Text field Name (Shared): 'ABC' gives ABC, 'ab' gives ABC; the exact key MNO outside the filter is
+//     taken (MNO); its prefix 'MN' fails with the does-not-exist text for Code='MN'. The same rule as the Boolean filter.
+//   - The host table field "Book Code": 'mn' gives MNO; holding ABC, 'mn' gives MNO and 'zzz' fails with the "cannot be found in
+//     the related table" text and keeps ABC (stored ABC, OnValidate did not run); on an OpenNew row 'abc' gives ABC and the new
+//     row (Id 0) stores ABC. A table field related by "LT TSV Book"."Code": 'mn' gives MNO, 'zzz' fails with "The field Key Book
+//     Code of table LT TSF Key Host contains a value (ZZZ) that cannot be found in the related table (LT TSV Book). ...".
+//   - The filtered variable (Active = true): 'mn' gives MNO; with XYZA (Active) and XYZ (not Active) both stored, 'XYZ' gives
+//     XYZA: the prefix match inside the filter wins over the exact key outside it.
 // BC versions: 27, 28, 29 by CI
 table 73340 "LT TSF Key Host"
 {
@@ -346,7 +367,12 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         RequestCell(Observer, 'Code', 'abc');
+#if BC28PLUS
+        Observer.Expect('request', 'set=ok value=ABC');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -356,7 +382,12 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         RequestCell(Observer, 'Code', 'mn');
+#if BC28PLUS
+        Observer.Expect('request', 'set=ok value=MNO');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -366,7 +397,12 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         RequestCell(Observer, 'Code', 'zzz');
+#if BC28PLUS
+        Observer.Expect('request', 'set=E: Validation error for Field: CodeCtl,  Message = ''The LT TSV Book does not exist. Identification fields and values: Code=''ZZZ'''' | TestValidation value=');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // A request-page Text[10] variable with a where() filter: an exact key outside it, a prefix of it, a lower-case prefix inside.
@@ -377,7 +413,12 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         RequestCell(Observer, 'Filtered', 'XYZ');
+#if BC28PLUS
+        Observer.Expect('request', 'set=ok value=XYZ');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -387,7 +428,12 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         RequestCell(Observer, 'Filtered', 'XY');
+#if BC28PLUS
+        Observer.Expect('request', 'set=E: Validation error for Field: FilteredCtl,  Message = ''The LT TSV Book does not exist. Identification fields and values: Code=''XY'''' | TestValidation value=');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -397,7 +443,12 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         RequestCell(Observer, 'Filtered', 'mn');
+#if BC28PLUS
+        Observer.Expect('request', 'set=ok value=MNO');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // A request-page Text[30] variable related to the non-key field Name.
@@ -408,7 +459,12 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         RequestCell(Observer, 'Name', 'Unique Name');
+#if BC28PLUS
+        Observer.Expect('request', 'set=E: Validation error for Field: NameCtl,  Message = ''The following field must be included into the table''s primary key: Field: Name Table: LT TSV Book'' | TestValidation value=');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // A request-page Text[10] variable related by "LT TSV Book"."Code".
@@ -419,7 +475,12 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         RequestCell(Observer, 'KeyField', 'mn');
+#if BC28PLUS
+        Observer.Expect('request', 'set=ok value=MNO');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // A request-page Text[10] variable related to the captioned table: no row.
@@ -430,7 +491,12 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         RequestCell(Observer, 'Cap', 'zzz');
+#if BC28PLUS
+        Observer.Expect('request', 'set=E: Validation error for Field: CapCtl,  Message = ''The Captioned Book does not exist. Identification fields and values: Book No.=''ZZZ'''' | TestValidation value=');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // A Code[10] variable related to the captioned table: other case, and no row.
@@ -446,7 +512,13 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer.Observe('set', Outcome(TrySetCodeCap(TP, 'cb1')));
         Observer.Observe('value', TP.BookCtl.Value());
         TP.Close();
+#if BC28PLUS
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', 'CB1');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -461,7 +533,13 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer.Observe('set', Outcome(TrySetCodeCap(TP, 'zzz')));
         Observer.Observe('value', TP.BookCtl.Value());
         TP.Close();
+#if BC28PLUS
+        Observer.Expect('set', 'E: Validation error for Field: BookCtl,  Message = ''The Captioned Book does not exist. Identification fields and values: Book No.=''ZZZ'''' | TestValidation');
+        Observer.Expect('value', '');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // A Code[10] variable that holds ABC (set in OnOpenPage): a lower-case prefix, and no row.
@@ -479,7 +557,15 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer.Observe('value', TP.BookCtl.Value());
         Observer.Observe('validated', TP.ValidatedCtl.Value());
         TP.Close();
+#if BC28PLUS
+        Observer.Expect('before', 'ABC');
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', 'MNO');
+        Observer.Expect('validated', '1');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -496,7 +582,15 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer.Observe('value', TP.BookCtl.Value());
         Observer.Observe('validated', TP.ValidatedCtl.Value());
         TP.Close();
+#if BC28PLUS
+        Observer.Expect('before', 'ABC');
+        Observer.Expect('set', 'E: Validation error for Field: BookCtl,  Message = ''The LT TSV Book does not exist. Identification fields and values: Code=''ZZZ'''' | TestValidation');
+        Observer.Expect('value', 'ABC');
+        Observer.Expect('validated', '0');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // A Code[10] variable related by "LT TSV Book"."Code": a lower-case prefix, and no row.
@@ -512,7 +606,13 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer.Observe('set', Outcome(TrySetCodeKeyField(TP, 'mn')));
         Observer.Observe('value', TP.BookCtl.Value());
         TP.Close();
+#if BC28PLUS
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', 'MNO');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -527,7 +627,13 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer.Observe('set', Outcome(TrySetCodeKeyField(TP, 'zzz')));
         Observer.Observe('value', TP.BookCtl.Value());
         TP.Close();
+#if BC28PLUS
+        Observer.Expect('set', 'E: Validation error for Field: BookCtl,  Message = ''The LT TSV Book does not exist. Identification fields and values: Code=''ZZZ'''' | TestValidation');
+        Observer.Expect('value', '');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // A Text[10] variable related with a const where() on the Text field Name (Shared): inside, an exact key outside, a prefix
@@ -550,7 +656,13 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         ConstCell(Observer, 'ABC');
+#if BC28PLUS
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', 'ABC');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -559,7 +671,13 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         ConstCell(Observer, 'MNO');
+#if BC28PLUS
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', 'MNO');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -568,7 +686,13 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         ConstCell(Observer, 'MN');
+#if BC28PLUS
+        Observer.Expect('set', 'E: Validation error for Field: BookCtl,  Message = ''The LT TSV Book does not exist. Identification fields and values: Code=''MN'''' | TestValidation');
+        Observer.Expect('value', '');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -577,7 +701,13 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         ConstCell(Observer, 'ab');
+#if BC28PLUS
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', 'ABC');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // The host table field "Book Code" (related to the key): a lower-case prefix; holding ABC, then a lower-case prefix or no row;
@@ -609,7 +739,16 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         HostCell(Observer, '', 'mn');
+#if BC28PLUS
+        Observer.Expect('before', '');
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', 'MNO');
+        Observer.Expect('validated', '1');
+        Observer.Expect('stored', 'Book Code=MNO validated=1');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -618,7 +757,16 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         HostCell(Observer, 'ABC', 'mn');
+#if BC28PLUS
+        Observer.Expect('before', 'ABC');
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', 'MNO');
+        Observer.Expect('validated', '1');
+        Observer.Expect('stored', 'Book Code=MNO validated=1');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -627,7 +775,16 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         HostCell(Observer, 'ABC', 'zzz');
+#if BC28PLUS
+        Observer.Expect('before', 'ABC');
+        Observer.Expect('set', 'E: Validation error for Field: BookCtl,  Message = ''The field Book Code of table LT TSV Host contains a value (ZZZ) that cannot be found in the related table (LT TSV Book). (Select Refresh to discard errors)'' | TestValidation');
+        Observer.Expect('value', 'ABC');
+        Observer.Expect('validated', '0');
+        Observer.Expect('stored', 'Book Code=ABC validated=0');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -648,7 +805,14 @@ codeunit 73340 "LT TSF SetValue Tests"
             Observer.Observe('stored', StrSubstNo('Id=%1 Book Code=%2 validated=%3', Host.Id, Host."Book Code", Host.ValidateCount))
         else
             Observer.Observe('stored', 'no row');
+#if BC28PLUS
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', 'ABC');
+        Observer.Expect('stored', 'Id=0 Book Code=ABC validated=1');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // A table field related by "LT TSV Book"."Code": a lower-case prefix, and no row.
@@ -675,7 +839,14 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         KeyHostCell(Observer, 'mn');
+#if BC28PLUS
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', 'MNO');
+        Observer.Expect('stored', 'MNO');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -684,7 +855,14 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         KeyHostCell(Observer, 'zzz');
+#if BC28PLUS
+        Observer.Expect('set', 'E: Validation error for Field: BookCtl,  Message = ''The field Key Book Code of table LT TSF Key Host contains a value (ZZZ) that cannot be found in the related table (LT TSV Book). (Select Refresh to discard errors)'' | TestValidation');
+        Observer.Expect('value', '');
+        Observer.Expect('stored', '');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // The filtered Text[10] variable of page 73392 (Active = true): a lower-case prefix inside the filter, and 'XYZ' when both a
@@ -708,7 +886,14 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         FilteredCell(Observer, 'mn', false);
+#if BC28PLUS
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', 'MNO');
+        Observer.Expect('validated', '1');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -717,6 +902,13 @@ codeunit 73340 "LT TSF SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         FilteredCell(Observer, 'XYZ', true);
+#if BC28PLUS
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', 'XYZA');
+        Observer.Expect('validated', '1');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 }
