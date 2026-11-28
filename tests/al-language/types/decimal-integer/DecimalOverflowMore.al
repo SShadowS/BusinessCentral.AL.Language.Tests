@@ -19,7 +19,8 @@
 //   Each cell presets its target to 1, runs in a TryFunction and records "ok: <target>" or "E: <GetLastErrorText> |
 //   <GetLastErrorCode>; after <target>", the target's value after the error. A value outside the range Format accepts is shown as
 //   'big <value / 10^15> e15' (Show of DecimalOverflowCells.al).
-//   BC 28 and later: the readings of a local BC 29 (Linux, W1, en-US session). BC 27.5: an observe round, not measured yet.
+//   Measured on a local BC 29.0.54011.57673 (Linux, W1, en-US session); on BC 27.5 this pull request's CI observe run 46168137059
+//   gave the same readings, both 27.5 legs alike, so they hold on every version with no version guard.
 // BC versions: 27, 28, 29 by CI
 table 73110 "LT DOX Row"
 {
@@ -350,7 +351,6 @@ codeunit 73111 "LT DOX Overflow Tests"
         Probe.Cell(Observer, 'sub_max_negmax');
         Probe.Cell(Observer, 'mul_negmax_dec10');
         Probe.Cell(Observer, 'mul_max_decneg10');
-#if BC28PLUS
         Observer.Expect('div_negmax_half', 'E: Value was either too large or too small for a Decimal. | AL:Overflow; after 1');
         Observer.Expect('div_max_neghalf', 'E: Value was either too large or too small for a Decimal. | AL:Overflow; after 1');
         Observer.Expect('add_negmax_negmax', 'E: Value was either too large or too small for a Decimal. | AL:Overflow; after 1');
@@ -358,9 +358,6 @@ codeunit 73111 "LT DOX Overflow Tests"
         Observer.Expect('mul_negmax_dec10', 'E: Value was either too large or too small for a Decimal. | AL:Overflow; after 1');
         Observer.Expect('mul_max_decneg10', 'E: Value was either too large or too small for a Decimal. | AL:Overflow; after 1');
         Observer.Verify();
-#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
-        Observer.Finish();
-#endif
     end;
 
     [Test]
@@ -374,16 +371,12 @@ codeunit 73111 "LT DOX Overflow Tests"
         Probe.Cell(Observer, 'mul_negmax_big10');
         Probe.Cell(Observer, 'mul_big10_max');
         Probe.Cell(Observer, 'mul_bigneg10_max');
-#if BC28PLUS
         Observer.Expect('mul_int10_negmax', 'E: Value was either too large or too small for a Decimal. | AL:Overflow; after 1');
         Observer.Expect('mul_intneg10_max', 'E: Value was either too large or too small for a Decimal. | AL:Overflow; after 1');
         Observer.Expect('mul_negmax_big10', 'E: Value was either too large or too small for a Decimal. | AL:Overflow; after 1');
         Observer.Expect('mul_big10_max', 'E: Value was either too large or too small for a Decimal. | AL:Overflow; after 1');
         Observer.Expect('mul_bigneg10_max', 'E: Value was either too large or too small for a Decimal. | AL:Overflow; after 1');
         Observer.Verify();
-#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
-        Observer.Finish();
-#endif
     end;
 
     [Test]
@@ -398,7 +391,6 @@ codeunit 73111 "LT DOX Overflow Tests"
         Probe.Cell(Observer, 'div_max_int1');
         Probe.Cell(Observer, 'div_max_bigneg1');
         Probe.Cell(Observer, 'div_max_int_half');
-#if BC28PLUS
         Observer.Expect('div_int_tiny', 'E: Value was either too large or too small for a Decimal. | AL:Overflow; after 1');
         Observer.Expect('div_big_tiny', 'E: Value was either too large or too small for a Decimal. | AL:Overflow; after 1');
         Observer.Expect('div_dur_tiny', 'E: Value was either too large or too small for a Decimal. | AL:Overflow; after 1');
@@ -406,9 +398,6 @@ codeunit 73111 "LT DOX Overflow Tests"
         Observer.Expect('div_max_bigneg1', 'ok: big -79228162514264.3375 e15');
         Observer.Expect('div_max_int_half', 'ok: big 39614081257132.1688 e15');
         Observer.Verify();
-#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
-        Observer.Finish();
-#endif
     end;
 
     [Test]
@@ -420,14 +409,10 @@ codeunit 73111 "LT DOX Overflow Tests"
         Probe.Cell(Observer, 'add_max18_93543950336');
         Probe.Cell(Observer, 'add_max18_1e28');
         Probe.Cell(Observer, 'mul_max18_1_1');
-#if BC28PLUS
         Observer.Expect('add_max18_93543950336', 'E: Value was either too large or too small for a Decimal. | AL:Overflow; after 1');
         Observer.Expect('add_max18_1e28', 'E: Value was either too large or too small for a Decimal. | AL:Overflow; after 1');
         Observer.Expect('mul_max18_1_1', 'E: Value was either too large or too small for a Decimal. | AL:Overflow; after 1');
         Observer.Verify();
-#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
-        Observer.Finish();
-#endif
     end;
 
     [Test]
@@ -443,7 +428,6 @@ codeunit 73111 "LT DOX Overflow Tests"
         Probe.Cell(Observer, 'add_max18_big93543950335');
         Probe.Cell(Observer, 'add_max18_big93543950336');
         Probe.Cell(Observer, 'add_big_max18');
-#if BC28PLUS
         Observer.Expect('mul_rounddown_int14', 'ok: big 79228162514264.3375 e15');
         Observer.Expect('mul_rounddown_dec14', 'ok: big 79228162514264.3375 e15');
         Observer.Expect('div_rounddown_07', 'ok: big 79228162514264.3375 e15');
@@ -452,9 +436,6 @@ codeunit 73111 "LT DOX Overflow Tests"
         Observer.Expect('add_max18_big93543950336', 'E: Value was either too large or too small for a Decimal. | AL:Overflow; after 1');
         Observer.Expect('add_big_max18', 'ok: big 79228162514264.3375 e15');
         Observer.Verify();
-#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
-        Observer.Finish();
-#endif
     end;
 
     // Whether each round-down result equals MAX18 exactly; mul_rounddown_ctrl, sub_max18_big100000000000 and the overflow cell
@@ -474,7 +455,6 @@ codeunit 73111 "LT DOX Overflow Tests"
         Probe.EqualCell(Observer, 'mul_rounddown_ctrl');
         Probe.EqualCell(Observer, 'sub_max18_big100000000000');
         Probe.EqualCell(Observer, 'add_max18_big93543950336');
-#if BC28PLUS
         Observer.Expect('mul_rounddown_int14_eq', 'ok=Yes; R = Max()=Yes; R = 79228162514264337500000000000=Yes');
         Observer.Expect('mul_rounddown_dec14_eq', 'ok=Yes; R = Max()=Yes; R = 79228162514264337500000000000=Yes');
         Observer.Expect('div_rounddown_07_eq', 'ok=Yes; R = Max()=Yes; R = 79228162514264337500000000000=Yes');
@@ -485,9 +465,6 @@ codeunit 73111 "LT DOX Overflow Tests"
         Observer.Expect('sub_max18_big100000000000_eq', 'ok=Yes; R = Max()=No; R = 79228162514264337500000000000=No');
         Observer.Expect('add_max18_big93543950336_eq', 'ok=No; R = Max()=No; R = 79228162514264337500000000000=No');
         Observer.Verify();
-#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
-        Observer.Finish();
-#endif
     end;
 
     [Test]
@@ -500,15 +477,11 @@ codeunit 73111 "LT DOX Overflow Tests"
         Probe.Cell(Observer, 'field_validate_neg1e15');
         Probe.Cell(Observer, 'fieldref_value_1e15');
         Probe.Cell(Observer, 'fieldref_value_neg1e15');
-#if BC28PLUS
         Observer.Expect('field_validate_1e15', 'E: The value of Decimal parameter  is outside of the permitted range. The current value is: 1,000,000,000,000,000. The permitted range is: from -999,999,999,999,999.99 to 999,999,999,999,999.99. | OutsidePermittedRange; after 1');
         Observer.Expect('field_validate_neg1e15', 'E: The value of Decimal parameter  is outside of the permitted range. The current value is: -1,000,000,000,000,000. The permitted range is: from -999,999,999,999,999.99 to 999,999,999,999,999.99. | OutsidePermittedRange; after 1');
         Observer.Expect('fieldref_value_1e15', 'E: The value of Decimal parameter  is outside of the permitted range. The current value is: 1,000,000,000,000,000. The permitted range is: from -999,999,999,999,999.99 to 999,999,999,999,999.99. | OutsidePermittedRange; after 1');
         Observer.Expect('fieldref_value_neg1e15', 'E: The value of Decimal parameter  is outside of the permitted range. The current value is: -1,000,000,000,000,000. The permitted range is: from -999,999,999,999,999.99 to 999,999,999,999,999.99. | OutsidePermittedRange; after 1');
         Observer.Verify();
-#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
-        Observer.Finish();
-#endif
     end;
 
     [Test]
@@ -521,15 +494,11 @@ codeunit 73111 "LT DOX Overflow Tests"
         Probe.Cell(Observer, 'temp_assign_1e15');
         Probe.Cell(Observer, 'temp_assign_neg1e15');
         Probe.Cell(Observer, 'temp_validate_1e15');
-#if BC28PLUS
         Observer.Expect('fieldref_validate_1e15', 'E: The value of Decimal parameter  is outside of the permitted range. The current value is: 1,000,000,000,000,000. The permitted range is: from -999,999,999,999,999.99 to 999,999,999,999,999.99. | OutsidePermittedRange; after 1');
         Observer.Expect('temp_assign_1e15', 'E: The value of Decimal parameter  is outside of the permitted range. The current value is: 1,000,000,000,000,000. The permitted range is: from -999,999,999,999,999.99 to 999,999,999,999,999.99. | OutsidePermittedRange; after 1');
         Observer.Expect('temp_assign_neg1e15', 'E: The value of Decimal parameter  is outside of the permitted range. The current value is: -1,000,000,000,000,000. The permitted range is: from -999,999,999,999,999.99 to 999,999,999,999,999.99. | OutsidePermittedRange; after 1');
         Observer.Expect('temp_validate_1e15', 'E: The value of Decimal parameter  is outside of the permitted range. The current value is: 1,000,000,000,000,000. The permitted range is: from -999,999,999,999,999.99 to 999,999,999,999,999.99. | OutsidePermittedRange; after 1');
         Observer.Verify();
-#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
-        Observer.Finish();
-#endif
     end;
 
     [Test]
@@ -542,15 +511,11 @@ codeunit 73111 "LT DOX Overflow Tests"
         Probe.Cell(Observer, 'format_995');
         Probe.Cell(Observer, 'field_assign_995');
         Probe.Cell(Observer, 'field_assign_neg995');
-#if BC28PLUS
         Observer.Expect('var_995', 'ok: big 0.999999999999999995 e15');
         Observer.Expect('format_995', 'E: The value of Decimal parameter  is outside of the permitted range. The current value is: 999,999,999,999,999.995. The permitted range is: from -999,999,999,999,999.99 to 999,999,999,999,999.99. | OutsidePermittedRange; after 1');
         Observer.Expect('field_assign_995', 'E: The value of Decimal parameter  is outside of the permitted range. The current value is: 999,999,999,999,999.995. The permitted range is: from -999,999,999,999,999.99 to 999,999,999,999,999.99. | OutsidePermittedRange; after 1');
         Observer.Expect('field_assign_neg995', 'E: The value of Decimal parameter  is outside of the permitted range. The current value is: -999,999,999,999,999.995. The permitted range is: from -999,999,999,999,999.99 to 999,999,999,999,999.99. | OutsidePermittedRange; after 1');
         Observer.Verify();
-#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
-        Observer.Finish();
-#endif
     end;
 
     [Test]
@@ -563,14 +528,10 @@ codeunit 73111 "LT DOX Overflow Tests"
         Probe.Cell(Observer, 'fieldref_value_995');
         Probe.Cell(Observer, 'temp_assign_995');
         Probe.Cell(Observer, 'field_assign_99');
-#if BC28PLUS
         Observer.Expect('field_validate_995', 'E: The value of Decimal parameter  is outside of the permitted range. The current value is: 999,999,999,999,999.995. The permitted range is: from -999,999,999,999,999.99 to 999,999,999,999,999.99. | OutsidePermittedRange; after 1');
         Observer.Expect('fieldref_value_995', 'E: The value of Decimal parameter  is outside of the permitted range. The current value is: 999,999,999,999,999.995. The permitted range is: from -999,999,999,999,999.99 to 999,999,999,999,999.99. | OutsidePermittedRange; after 1');
         Observer.Expect('temp_assign_995', 'E: The value of Decimal parameter  is outside of the permitted range. The current value is: 999,999,999,999,999.995. The permitted range is: from -999,999,999,999,999.99 to 999,999,999,999,999.99. | OutsidePermittedRange; after 1');
         Observer.Expect('field_assign_99', 'ok: 999999999999999.99');
         Observer.Verify();
-#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
-        Observer.Finish();
-#endif
     end;
 }
