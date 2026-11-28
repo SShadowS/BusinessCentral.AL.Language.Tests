@@ -1,4 +1,23 @@
-// HEADER PLACEHOLDER
+// BC Documentation: https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/methods-auto/errorinfo/errorinfo-errortype-method
+// Scope: in-scope
+// Fixtures used: Probe Observer (codeunit 69160); self-contained codeunits 77400 (tests) and 77401 (raises an ErrorInfo in OnRun)
+// Probe: written against local BC on Linux legs 27.5, 28.5 and 29.0 that mirror the corpus CI (al-runner issue 9409); all three
+// produced the same values. Every literal asserted below is what those legs produced.
+// Facts: the text of an error raised with an ErrorInfo of ErrorType::Internal. The correlation id changes on every raise, so the tests
+// assert its shape (the Shape helper below writes each hex digit as h or H), not the id.
+//   - GetLastErrorText() and GetLastErrorText(false): 'An error has occurred. If the error persists, please contact your system
+//     administrator.' + '\' (one backslash, char 92) + 'Correlation ID: ' + the id. The id has 36 characters: lower case hex with
+//     dashes, NO braces; it parses as a Guid and equals LowerCase(Format(Guid, 0, 4)). Text length 140.
+//   - The same text with the Message set through the method, through ErrorInfo.Create, with no Message at all, and with a
+//     DetailedMessage: neither Message nor DetailedMessage appears. Same text after asserterror, after a [TryFunction] that returns
+//     false, after Codeunit.Run of an instance that returns false, and after a collecting procedure that ends with the collected
+//     error. GetLastErrorCode() is Dialog. The ErrorInfo variable keeps its own Message.
+//   - GetLastErrorText(true) gives the personal data removed text, as for a Client ErrorInfo.
+//   - Reading the text twice gives the same id; two raises of one ErrorInfo give different ids and the same shape.
+//   - The Message of a collected Internal ErrorInfo (GetCollectedErrors): the same text, but CR LF (13, 10) instead of the backslash
+//     (length 141); same id format.
+//   - Client neighbours: GetLastErrorText() is the Message ('' without one); a DetailedMessage does not appear; code Dialog.
+// BC versions: 27.5, 28.5, 29.0 (identical)
 
 codeunit 77401 "LT EIT Raiser"
 {
@@ -94,7 +113,6 @@ codeunit 77400 "LT EIT Internal Text"
         Observer.Observe(Name + ' id len', Format(StrLen(Id)));
         Observer.Observe(Name + ' id is guid', Format(Evaluate(G, Id)));
         Observer.Observe(Name + ' id = lower format 4', Format(LowerCase(Format(G, 0, 4)) = Id));
-        Observer.Observe(Name + ' id = upper format 4', Format(UpperCase(Format(G, 0, 4)) = Id));
         Observer.Observe(Name + ' brace pos', Format(StrPos(T, '{')));
         P := StrPos(T, CidLbl);
         if P > 1 then begin
@@ -156,7 +174,18 @@ codeunit 77400 "LT EIT Internal Text"
         Observer.Observe('message after raise', EI.Message);
         Evaluate(G, '{6F9619FF-8B86-D011-B42D-00C04FC964FF}');
         Observer.Observe('format 4 of a fixed guid', Format(G, 0, 4));
-        Observer.Finish();
+        Observer.Expect('text shape', 'An error has occurred. If the error persists, please contact your system administrator.\Correlation ID=hhhhhhhh-hhhh-hhhh-hhhh-hhhhhhhhhhhh');
+        Observer.Expect('text len', '140');
+        Observer.Expect('text id len', '36');
+        Observer.Expect('text id is guid', 'Yes');
+        Observer.Expect('text id = lower format 4', 'Yes');
+        Observer.Expect('text brace pos', '0');
+        Observer.Expect('text char before label', '92');
+        Observer.Expect('text 2nd char before label', '46');
+        Observer.Expect('code', 'Dialog');
+        Observer.Expect('message after raise', 'E2 internal');
+        Observer.Expect('format 4 of a fixed guid', '6F9619FF-8B86-D011-B42D-00C04FC964FF');
+        Observer.Verify();
     end;
 
     // ErrorInfo.Create and the Message property instead of the method.
@@ -170,7 +199,15 @@ codeunit 77400 "LT EIT Internal Text"
         EI.ErrorType := ErrorType::Internal;
         asserterror Error(EI);
         ObserveId(Observer, 'text', GetLastErrorText());
-        Observer.Finish();
+        Observer.Expect('text shape', 'An error has occurred. If the error persists, please contact your system administrator.\Correlation ID=hhhhhhhh-hhhh-hhhh-hhhh-hhhhhhhhhhhh');
+        Observer.Expect('text len', '140');
+        Observer.Expect('text id len', '36');
+        Observer.Expect('text id is guid', 'Yes');
+        Observer.Expect('text id = lower format 4', 'Yes');
+        Observer.Expect('text brace pos', '0');
+        Observer.Expect('text char before label', '92');
+        Observer.Expect('text 2nd char before label', '46');
+        Observer.Verify();
     end;
 
     // No Message at all.
@@ -184,7 +221,16 @@ codeunit 77400 "LT EIT Internal Text"
         asserterror Error(EI);
         ObserveId(Observer, 'text', GetLastErrorText());
         Observer.Observe('code', GetLastErrorCode());
-        Observer.Finish();
+        Observer.Expect('text shape', 'An error has occurred. If the error persists, please contact your system administrator.\Correlation ID=hhhhhhhh-hhhh-hhhh-hhhh-hhhhhhhhhhhh');
+        Observer.Expect('text len', '140');
+        Observer.Expect('text id len', '36');
+        Observer.Expect('text id is guid', 'Yes');
+        Observer.Expect('text id = lower format 4', 'Yes');
+        Observer.Expect('text brace pos', '0');
+        Observer.Expect('text char before label', '92');
+        Observer.Expect('text 2nd char before label', '46');
+        Observer.Expect('code', 'Dialog');
+        Observer.Verify();
     end;
 
     // A DetailedMessage beside the Message.
@@ -198,7 +244,15 @@ codeunit 77400 "LT EIT Internal Text"
         EI.DetailedMessage('detail of the internal error');
         asserterror Error(EI);
         ObserveId(Observer, 'text', GetLastErrorText());
-        Observer.Finish();
+        Observer.Expect('text shape', 'An error has occurred. If the error persists, please contact your system administrator.\Correlation ID=hhhhhhhh-hhhh-hhhh-hhhh-hhhhhhhhhhhh');
+        Observer.Expect('text len', '140');
+        Observer.Expect('text id len', '36');
+        Observer.Expect('text id is guid', 'Yes');
+        Observer.Expect('text id = lower format 4', 'Yes');
+        Observer.Expect('text brace pos', '0');
+        Observer.Expect('text char before label', '92');
+        Observer.Expect('text 2nd char before label', '46');
+        Observer.Verify();
     end;
 
     // GetLastErrorText(true) (exclude customer content), GetLastErrorText(false) and GetLastErrorText() of one raise.
@@ -224,7 +278,14 @@ codeunit 77400 "LT EIT Internal Text"
         Observer.Observe('second read = first', Format(TextAgain = TextDefault));
         ClearLastError();
         Observer.Observe('after clear', GetLastErrorText());
-        Observer.Finish();
+        Observer.Expect('true shape', '[no id] This message had personal data removed. The original may still be in transient telemetry. Find it using the transientTelemetryId.');
+        Observer.Expect('false shape', 'An error has occurred. If the error persists, please contact your system administrator.\Correlation ID=hhhhhhhh-hhhh-hhhh-hhhh-hhhhhhhhhhhh');
+        Observer.Expect('default shape', 'An error has occurred. If the error persists, please contact your system administrator.\Correlation ID=hhhhhhhh-hhhh-hhhh-hhhh-hhhhhhhhhhhh');
+        Observer.Expect('true = default', 'No');
+        Observer.Expect('false = default', 'Yes');
+        Observer.Expect('second read = first', 'Yes');
+        Observer.Expect('after clear', '');
+        Observer.Verify();
     end;
 
     // TryFunction: the text after a false return.
@@ -236,7 +297,17 @@ codeunit 77400 "LT EIT Internal Text"
         Observer.Observe('try result', Format(TryRaise(Internal('try internal'))));
         ObserveId(Observer, 'text', GetLastErrorText());
         Observer.Observe('code', GetLastErrorCode());
-        Observer.Finish();
+        Observer.Expect('try result', 'No');
+        Observer.Expect('text shape', 'An error has occurred. If the error persists, please contact your system administrator.\Correlation ID=hhhhhhhh-hhhh-hhhh-hhhh-hhhhhhhhhhhh');
+        Observer.Expect('text len', '140');
+        Observer.Expect('text id len', '36');
+        Observer.Expect('text id is guid', 'Yes');
+        Observer.Expect('text id = lower format 4', 'Yes');
+        Observer.Expect('text brace pos', '0');
+        Observer.Expect('text char before label', '92');
+        Observer.Expect('text 2nd char before label', '46');
+        Observer.Expect('code', 'Dialog');
+        Observer.Verify();
     end;
 
     // Codeunit.Run of an instance that raises the ErrorInfo in OnRun.
@@ -250,7 +321,17 @@ codeunit 77400 "LT EIT Internal Text"
         Observer.Observe('run result', Format(Raiser.Run()));
         ObserveId(Observer, 'text', GetLastErrorText());
         Observer.Observe('code', GetLastErrorCode());
-        Observer.Finish();
+        Observer.Expect('run result', 'No');
+        Observer.Expect('text shape', 'An error has occurred. If the error persists, please contact your system administrator.\Correlation ID=hhhhhhhh-hhhh-hhhh-hhhh-hhhhhhhhhhhh');
+        Observer.Expect('text len', '140');
+        Observer.Expect('text id len', '36');
+        Observer.Expect('text id is guid', 'Yes');
+        Observer.Expect('text id = lower format 4', 'Yes');
+        Observer.Expect('text brace pos', '0');
+        Observer.Expect('text char before label', '92');
+        Observer.Expect('text 2nd char before label', '46');
+        Observer.Expect('code', 'Dialog');
+        Observer.Verify();
     end;
 
     // A collected Internal error: Message of the collected ErrorInfo.
@@ -268,7 +349,17 @@ codeunit 77400 "LT EIT Internal Text"
         Observer.Observe('count', Format(Count));
         ObserveId(Observer, 'message', Collected.Message);
         Observer.Observe('type', Format(Collected.ErrorType));
-        Observer.Finish();
+        Observer.Expect('count', '1');
+        Observer.Expect('message shape', 'An error has occurred. If the error persists, please contact your system administrator.\r\nCorrelation ID=hhhhhhhh-hhhh-hhhh-hhhh-hhhhhhhhhhhh');
+        Observer.Expect('message len', '141');
+        Observer.Expect('message id len', '36');
+        Observer.Expect('message id is guid', 'Yes');
+        Observer.Expect('message id = lower format 4', 'Yes');
+        Observer.Expect('message brace pos', '0');
+        Observer.Expect('message char before label', '10');
+        Observer.Expect('message 2nd char before label', '13');
+        Observer.Expect('type', 'Internal');
+        Observer.Verify();
     end;
 
     // A collected Internal error that leaves the collecting procedure: the text of the error raised at its end.
@@ -283,7 +374,16 @@ codeunit 77400 "LT EIT Internal Text"
         asserterror CollectAndLeave(EI);
         ObserveId(Observer, 'text', GetLastErrorText());
         Observer.Observe('code', GetLastErrorCode());
-        Observer.Finish();
+        Observer.Expect('text shape', 'An error has occurred. If the error persists, please contact your system administrator.\Correlation ID=hhhhhhhh-hhhh-hhhh-hhhh-hhhhhhhhhhhh');
+        Observer.Expect('text len', '140');
+        Observer.Expect('text id len', '36');
+        Observer.Expect('text id is guid', 'Yes');
+        Observer.Expect('text id = lower format 4', 'Yes');
+        Observer.Expect('text brace pos', '0');
+        Observer.Expect('text char before label', '92');
+        Observer.Expect('text 2nd char before label', '46');
+        Observer.Expect('code', 'Dialog');
+        Observer.Verify();
     end;
 
     // Two raises of one ErrorInfo: the ids differ, the shape does not.
@@ -302,7 +402,9 @@ codeunit 77400 "LT EIT Internal Text"
         Second := GetLastErrorText();
         Observer.Observe('ids equal', Format(IdOf(First) = IdOf(Second)));
         Observer.Observe('shapes equal', Format(Shape(First) = Shape(Second)));
-        Observer.Finish();
+        Observer.Expect('ids equal', 'No');
+        Observer.Expect('shapes equal', 'Yes');
+        Observer.Verify();
     end;
 
     // Client neighbours: with Message, without Message, with DetailedMessage, and GetLastErrorText(true).
@@ -331,7 +433,15 @@ codeunit 77400 "LT EIT Internal Text"
         ClearLastError();
         Observer.Observe('try client', Format(TryRaise(EI)));
         Observer.Observe('try client text', GetLastErrorText());
-        Observer.Finish();
+        Observer.Expect('message', 'client text');
+        Observer.Expect('message true', 'This message had personal data removed. The original may still be in transient telemetry. Find it using the transientTelemetryId.');
+        Observer.Expect('message code', 'Dialog');
+        Observer.Expect('no message', '');
+        Observer.Expect('no message code', 'Dialog');
+        Observer.Expect('detailed', 'client text');
+        Observer.Expect('try client', 'No');
+        Observer.Expect('try client text', 'client text');
+        Observer.Verify();
     end;
 
     var
