@@ -2,18 +2,19 @@
 //   https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/properties/devenv-tablerelation-property
 // Scope: in-scope
 // Fixtures used: Probe Observer (69160); tables 73390 ("LT TSV Book") and 73396 ("LT TSV Cap Book") and pages 73390 ("LT TSV Text
-//   Var") and 73392 ("LT TSV Filtered Var") of SetValueTableRelation.al; own tables 73220..73224, pages 73220..73225, test
+//   Var") and 73392 ("LT TSV Filtered Var") of SetValueTableRelation.al; own tables 73220..73224, pages 73220..73226, test
 //   codeunit 73220
 // local object: the control's TableRelation (and the related table's captions, key type and length) is the property under test.
 // Probe (follow-up of corpus pull requests 1646 and 1665; the shapes AL Runner issue 9446 still lists, from the review of corpus
 //   pull request 1665): TestPage <control>.SetValue on a control with a TableRelation, for:
-//   - a Code[10] variable related to the non-key field Name;
+//   - a Code[30] variable related to the non-key field Name ('Unique Name', 'zzz', '');
 //   - a Text[10] variable related to a table whose caption and key caption come from CaptionML;
-//   - a Code[10] variable related to a table whose Code key has SQLDataType = Integer;
-//   - a table field with an if relation (Kind 1: the Book table, else the captioned table);
+//   - a Code[10] variable related to a table whose Code key has SQLDataType = Integer (rows 5, 12, 123, and 100 in one test);
+//   - a table field with an if relation (Kind 1: the Book table, else the captioned table; Kind 2 typed 'cb1', 'cb', 'mn');
 //   - a non-English session (GlobalLanguage 1043, set back to 1033 at the end of the test), on the plain and the CaptionML table;
-//   - a typed text longer than the key (11 characters into Code[10]);
-//   - SetValue(5), an Integer;
+//   - a typed text longer than the key: 11 characters into the Text[10] variable, and into a Text[30] variable related to the
+//     same Code[10] key ('ABCDEFGHIJK', 'MNOPQRSTUVW');
+//   - SetValue(5), an Integer, with no row 5, with a row 5, and with only a row 50;
 //   - an exact key inside the filter while a longer key that starts with it is outside (XY Active, XYA not Active);
 //   - a completed key longer than the control (a Code[3] variable and a Code[3] table field typed 'AB', the row ABCDE);
 //   - leading and trailing spaces (' mn', 'mn ');
@@ -22,7 +23,8 @@
 //   <GetLastErrorCode>"; value = the control's Value() afterwards; stored = the record after Close for table fields.
 //   Measured on a local BC 29.0.54011.57673 (Linux, W1, en-US session); on BC 27.5 this pull request's CI observe run 46169003904
 //   gave the same readings, both 27.5 legs alike (the 1043 session texts included), so they hold on every version with no
-//   version guard.
+//   version guard. The review cells (SqlDataType_Prefix100, LongTextVar_*, IfRelation_Kind2Prefix, CodeName_NoRow,
+//   CodeName_Blank, TextVar_IntegerPrefixRow): observe round, every one ends with Observer.Finish(); nothing is asserted yet.
 // BC versions: 27, 28, 29 by CI
 table 73220 "LT TSG ML Book"
 {
@@ -195,13 +197,33 @@ page 73225 "LT TSG Short Host Card"
     }
 }
 
+page 73226 "LT TSG Long Text Var"
+{
+    PageType = Card;
+    ApplicationArea = All;
+    UsageCategory = None;
+
+    layout
+    {
+        area(Content)
+        {
+            field(BookCtl; BookCode) { ApplicationArea = All; Caption = 'Long Book Code'; TableRelation = "LT TSV Book"; }
+        }
+    }
+
+    var
+        BookCode: Text[30];
+}
+
 codeunit 73220 "LT TSG SetValue Tests"
 {
     Subtype = Test;
     TestPermissions = Disabled;
 
     // The Book rows of SetValueTableRelation.al (ABC, ABD, MNO, XYZ) plus the Extra rows; CB1 in the captioned table; ML1 in the
-    // CaptionML table; 5, 12 and 123 in the SQLDataType table; ABCDE in the long-key table; one row in each host table.
+    // CaptionML table; 5, 12 and 123 in the SQLDataType table (and 100 for the Extra 'SQL100'); ABCDE in the long-key table; the
+    // Short Host row 1 (IfHostCell inserts the If Host row). The session language is set back to 1033 first, so a 1043 test that
+    // raises cannot leave it in Dutch.
     local procedure Seed(Extra: Text)
     var
         Book: Record "LT TSV Book";
@@ -212,6 +234,7 @@ codeunit 73220 "LT TSG SetValue Tests"
         IfHost: Record "LT TSG If Host";
         ShortHost: Record "LT TSG Short Host";
     begin
+        GlobalLanguage(1033);
         Book.DeleteAll();
         CapBook.DeleteAll();
         MlBook.DeleteAll();
@@ -233,6 +256,10 @@ codeunit 73220 "LT TSG SetValue Tests"
                 end;
             '5':
                 AddBook('5', 'Five', true);
+            '50':
+                AddBook('50', 'Fifty', true);
+            'SQL100':
+                AddSql('100');
         end;
         CapBook.Init();
         CapBook."Code" := 'CB1';
@@ -314,6 +341,12 @@ codeunit 73220 "LT TSG SetValue Tests"
 
     [TryFunction]
     local procedure TrySetShortHost(var TP: TestPage "LT TSG Short Host Card"; Typed: Text)
+    begin
+        TP.BookCtl.SetValue(Typed);
+    end;
+
+    [TryFunction]
+    local procedure TrySetLongText(var TP: TestPage "LT TSG Long Text Var"; Typed: Text)
     begin
         TP.BookCtl.SetValue(Typed);
     end;
@@ -664,5 +697,110 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer.Expect('set', 'E: Validation error for Field: BookCtl,  Message = ''The LT TSV Book does not exist. Identification fields and values: Code=''MN'''' | TestValidation');
         Observer.Expect('value', '');
         Observer.Verify();
+    end;
+
+    // Review cells of corpus pull request 1668.
+    // SQLDataType = Integer with the rows 5, 12, 100 and 123, typed '1': integer order gives 12, text order 100.
+    [Test]
+    procedure SqlDataType_Prefix100()
+    var
+        Observer: Codeunit "Probe Observer";
+        TP: TestPage "LT TSG Sql Var";
+    begin
+        Seed('SQL100');
+        TP.OpenEdit();
+        ClearLastError();
+        Observer.Observe('set', Outcome(TrySetSql(TP, '1')));
+        Observer.Observe('value', TP.BookCtl.Value());
+        TP.Close();
+        Observer.Finish();
+    end;
+
+    // A Text[30] variable related to the Code[10] key, typed 11 characters: no row, and a text that a row (MNO) starts.
+    local procedure LongTextCell(var Observer: Codeunit "Probe Observer"; Typed: Text)
+    var
+        TP: TestPage "LT TSG Long Text Var";
+    begin
+        Seed('');
+        TP.OpenEdit();
+        ClearLastError();
+        Observer.Observe('set', Outcome(TrySetLongText(TP, Typed)));
+        Observer.Observe('value', TP.BookCtl.Value());
+        TP.Close();
+    end;
+
+    [Test]
+    procedure LongTextVar_NoRow11()
+    var
+        Observer: Codeunit "Probe Observer";
+    begin
+        LongTextCell(Observer, 'ABCDEFGHIJK');
+        Observer.Finish();
+    end;
+
+    [Test]
+    procedure LongTextVar_RowPrefix11()
+    var
+        Observer: Codeunit "Probe Observer";
+    begin
+        LongTextCell(Observer, 'MNOPQRSTUVW');
+        Observer.Finish();
+    end;
+
+    // The if relation's else branch typed as a prefix: Kind 2, 'cb' (the row CB1).
+    [Test]
+    procedure IfRelation_Kind2Prefix()
+    var
+        Observer: Codeunit "Probe Observer";
+    begin
+        IfHostCell(Observer, 2, 'cb');
+        Observer.Finish();
+    end;
+
+    // The Code[30] variable related to Name: no row, and blank.
+    local procedure CodeNameCell(var Observer: Codeunit "Probe Observer"; Typed: Text)
+    var
+        TP: TestPage "LT TSG Code Name Var";
+    begin
+        Seed('');
+        TP.OpenEdit();
+        ClearLastError();
+        Observer.Observe('set', Outcome(TrySetCodeName(TP, Typed)));
+        Observer.Observe('value', TP.BookCtl.Value());
+        TP.Close();
+    end;
+
+    [Test]
+    procedure CodeName_NoRow()
+    var
+        Observer: Codeunit "Probe Observer";
+    begin
+        CodeNameCell(Observer, 'zzz');
+        Observer.Finish();
+    end;
+
+    [Test]
+    procedure CodeName_Blank()
+    var
+        Observer: Codeunit "Probe Observer";
+    begin
+        CodeNameCell(Observer, '');
+        Observer.Finish();
+    end;
+
+    // SetValue(5) with only a row 50.
+    [Test]
+    procedure TextVar_IntegerPrefixRow()
+    var
+        Observer: Codeunit "Probe Observer";
+        TP: TestPage "LT TSV Text Var";
+    begin
+        Seed('50');
+        TP.OpenEdit();
+        ClearLastError();
+        Observer.Observe('set', Outcome(TrySetTextInteger(TP, 5)));
+        Observer.Observe('value', TP.BookCtl.Value());
+        TP.Close();
+        Observer.Finish();
     end;
 }
