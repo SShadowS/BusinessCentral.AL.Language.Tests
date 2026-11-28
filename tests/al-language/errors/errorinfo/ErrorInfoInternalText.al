@@ -62,18 +62,19 @@ codeunit 77400 "LT EIT Internal Text"
     local procedure HexShape(Id: Text): Text
     var
         i: Integer;
-        C: Text;
+        C: Integer;
         Result: Text;
     begin
         for i := 1 to StrLen(Id) do begin
-            C := CopyStr(Id, i, 1);
-            if StrPos('0123456789abcdef', C) > 0 then
-                Result += 'h'
-            else
-                if StrPos('ABCDEF', C) > 0 then
-                    Result += 'H'
+            C := Id[i];
+            case true of
+                (C >= 48) and (C <= 57), (C >= 97) and (C <= 102):
+                    Result += 'h';
+                (C >= 65) and (C <= 70):
+                    Result += 'H';
                 else
-                    Result += C;
+                    Result += CopyStr(Id, i, 1);
+            end;
         end;
         exit(Result);
     end;
@@ -92,7 +93,8 @@ codeunit 77400 "LT EIT Internal Text"
         Observer.Observe(Name + ' len', Format(StrLen(T)));
         Observer.Observe(Name + ' id len', Format(StrLen(Id)));
         Observer.Observe(Name + ' id is guid', Format(Evaluate(G, Id)));
-        Observer.Observe(Name + ' id = format 4', Format(Format(G, 0, 4) = Id));
+        Observer.Observe(Name + ' id = lower format 4', Format(LowerCase(Format(G, 0, 4)) = Id));
+        Observer.Observe(Name + ' id = upper format 4', Format(UpperCase(Format(G, 0, 4)) = Id));
         Observer.Observe(Name + ' brace pos', Format(StrPos(T, '{')));
         P := StrPos(T, CidLbl);
         if P > 1 then begin
@@ -145,12 +147,15 @@ codeunit 77400 "LT EIT Internal Text"
     var
         Observer: Codeunit "Probe Observer";
         EI: ErrorInfo;
+        G: Guid;
     begin
         EI := Internal('E2 internal');
         asserterror Error(EI);
         ObserveId(Observer, 'text', GetLastErrorText());
         Observer.Observe('code', GetLastErrorCode());
         Observer.Observe('message after raise', EI.Message);
+        Evaluate(G, '{6F9619FF-8B86-D011-B42D-00C04FC964FF}');
+        Observer.Observe('format 4 of a fixed guid', Format(G, 0, 4));
         Observer.Finish();
     end;
 
