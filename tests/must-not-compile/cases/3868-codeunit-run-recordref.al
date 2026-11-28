@@ -1,7 +1,7 @@
 // @expect AL0133 | Argument 2: cannot convert from 'RecordRef' to 'var Table'
 // @from 28
 // Codeunit.Run with a RecordRef as the record. (al-runner issue 9280)
-// Measured with AL 16.2.28.57946 (runtime 16.0), AL 17.0.34.45391 (runtime 17.0) and AL 18.0.43.1464 (runtime 18.0): AL0133 on each. BC 27 runs its apps at runtime 16.1, which AL 16.2 does not compile (AL1043), so the case starts at BC 28 as 1634 does.
+// Measured with AL 16.2.28.57946 (runtime 16.0), AL 17.0.34.45391 (runtime 17.0) and AL 18.0.43.1464 (runtime 18.0): AL0133 on each. The case starts at BC 28, as 1634 does: on the BC 27 leg (runtime 16.1, which only AL 17 and newer compile) AL 17.0.34.45391 and AL 18.0.43.1464 give AL0666 for the overload by name of runtime 17.0 instead.
 table 53868 "MNC RR Row 53868"
 {
     fields { field(1; Id; Integer) { } }

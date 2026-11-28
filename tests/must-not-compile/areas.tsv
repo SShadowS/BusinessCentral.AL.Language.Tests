@@ -1712,3 +1712,8 @@ stem	area
 3866-report-runmodal-recordref	recordref-fieldref
 3867-xmlport-run-recordref	recordref-fieldref
 3868-codeunit-run-recordref	recordref-fieldref
+3869-integer-plus-assign-recordref-fieldindex-value	recordref-fieldref
+3870-integer-plus-assign-keyref-fieldindex-value	recordref-fieldref
+3871-integer-plus-assign-returned-fieldref-value	recordref-fieldref
+3872-integer-plus-assign-global-fieldref-value	recordref-fieldref
+3873-named-return-value-plus-assign-fieldref-value	recordref-fieldref
