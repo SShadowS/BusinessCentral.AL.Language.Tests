@@ -9,6 +9,18 @@
 //   MarkedOnly, a temporary record, a RecordRef; and the row code that runs: OnDelete alone, OnBeforeDeleteEvent and OnAfterDeleteEvent
 //   subscribers alone, the "Global Triggers" OnDatabaseDelete alone, and all of them together with OnGlobalDelete and the table extension
 //   OnBeforeDelete, OnDelete and OnAfterDelete triggers; DeleteAll(false) and DeleteAll() as controls.
+// Probe: measured on BC 27.5, 28.5 and 29.0 (BC on Linux, the corpus CI leg setup); the three gave the same values.
+// Facts:
+//   - DeleteAll runs its row code row by row in the record's sort order: Ascending(false) on the primary key gives 3,2,1; a filter
+//     keeps that order over the filtered rows; MarkedOnly, a temporary record and a RecordRef with Ascending(false) do the same.
+//   - Ascending(false) on a secondary key reverses the whole order, the primary key inside equal key values too (Grp 2,1,2,1,3 for
+//     rows 1..5: ascending 2,4,1,3,5, descending 5,3,1,4,2). SetAscending(Grp, false) reverses only Grp: 5,1,3,2,4.
+//   - Per row, DeleteAll(true) runs OnBeforeDeleteEvent, the table extension OnBeforeDelete, OnDelete, the table extension OnDelete,
+//     the "Global Triggers" OnDatabaseDelete, the table extension OnAfterDelete, OnAfterDeleteEvent; then the next row. A temporary
+//     record runs the same without OnDatabaseDelete.
+//   - DeleteAll(false) runs no table or table extension trigger (DeleteAll() neither, measured on the OnDelete-only table), but runs OnBeforeDeleteEvent,
+//     OnDatabaseDelete and OnAfterDeleteEvent per row (RunTrigger = No), in the same sort order.
+//   - OnGlobalDelete (trigger mask 4) is not raised by DeleteAll, nor by a single Delete.
 // Every test records what BC produced with Observer.Expect and ends in Verify().
 // BC versions: 27, 28, 29
 
@@ -286,7 +298,14 @@ codeunit 90667 "DRO Probe"
         Row.SetRange(Id, 2, 4);
         Row.DeleteAll(true);
         Observer.Observe('pk_ascending_filter', Log.Take());
-        Observer.Finish();
+        Observer.Expect('pk_descending', 'T3,T2,T1');
+        Observer.Expect('pk_descending|left', '<none>');
+        Observer.Expect('pk_ascending', 'T1,T2,T3');
+        Observer.Expect('pk_ascending|left', '<none>');
+        Observer.Expect('pk_descending_filter', 'T4,T3,T2');
+        Observer.Expect('pk_descending_filter|left', '1,5');
+        Observer.Expect('pk_ascending_filter', 'T2,T3,T4');
+        Observer.Verify();
     end;
 
     // OnDelete only, secondary key with ties.
@@ -323,7 +342,12 @@ codeunit 90667 "DRO Probe"
         Row.DeleteAll(true);
         Observer.Observe('grp_descending_filter', Log.Take());
         Observer.Observe('grp_descending_filter|left', Left(Database::"DRO Row"));
-        Observer.Finish();
+        Observer.Expect('grp_ascending', 'T2,T4,T1,T3,T5');
+        Observer.Expect('grp_descending', 'T5,T3,T1,T4,T2');
+        Observer.Expect('grp_setascending_false', 'T5,T1,T3,T2,T4');
+        Observer.Expect('grp_descending_filter', 'T3,T1,T4,T2');
+        Observer.Expect('grp_descending_filter|left', '5');
+        Observer.Verify();
     end;
 
     // OnDelete only: MarkedOnly, a temporary record and a RecordRef, all descending.
@@ -367,7 +391,13 @@ codeunit 90667 "DRO Probe"
         RecRef.DeleteAll(true);
         Observer.Observe('recordref_descending', Log.Take());
         Observer.Observe('recordref_descending|left', Left(Database::"DRO Row"));
-        Observer.Finish();
+        Observer.Expect('markedonly_descending', 'T4,T3,T1');
+        Observer.Expect('markedonly_descending|left', '2,5');
+        Observer.Expect('temporary_descending', 'T3,T2,T1');
+        Observer.Expect('temporary_descending|count', '0');
+        Observer.Expect('recordref_descending', 'T3,T2,T1');
+        Observer.Expect('recordref_descending|left', '<none>');
+        Observer.Verify();
     end;
 
     // OnDelete only: DeleteAll(false) and DeleteAll() run no row code.
@@ -389,7 +419,11 @@ codeunit 90667 "DRO Probe"
         Row.DeleteAll();
         Observer.Observe('default_descending', Log.Take());
         Observer.Observe('default_descending|left', Left(Database::"DRO Row"));
-        Observer.Finish();
+        Observer.Expect('false_descending', '');
+        Observer.Expect('false_descending|left', '<none>');
+        Observer.Expect('default_descending', '');
+        Observer.Expect('default_descending|left', '<none>');
+        Observer.Verify();
     end;
 
     // Table event subscribers only, no OnDelete.
@@ -429,7 +463,13 @@ codeunit 90667 "DRO Probe"
         Row.DeleteAll(false);
         Observer.Observe('false_grp_descending', Log.Take());
         Observer.Observe('left', Left(Database::"DRO Ev Row"));
-        Observer.Finish();
+        Observer.Expect('true_descending', 'B3/Yes,A3/Yes,B2/Yes,A2/Yes,B1/Yes,A1/Yes');
+        Observer.Expect('true_ascending', 'B1/Yes,A1/Yes,B2/Yes,A2/Yes,B3/Yes,A3/Yes');
+        Observer.Expect('false_descending', 'B3/No,A3/No,B2/No,A2/No,B1/No,A1/No');
+        Observer.Expect('true_grp_descending', 'B5/Yes,A5/Yes,B3/Yes,A3/Yes,B1/Yes,A1/Yes,B4/Yes,A4/Yes,B2/Yes,A2/Yes');
+        Observer.Expect('false_grp_descending', 'B5/No,A5/No,B3/No,A3/No,B1/No,A1/No,B4/No,A4/No,B2/No,A2/No');
+        Observer.Expect('left', '<none>');
+        Observer.Verify();
     end;
 
     // "Global Triggers" OnDatabaseDelete only, no OnDelete.
@@ -462,7 +502,12 @@ codeunit 90667 "DRO Probe"
         Row.DeleteAll(true);
         Observer.Observe('true_grp_descending', Log.Take());
         Observer.Observe('left', Left(Database::"DRO Db Row"));
-        Observer.Finish();
+        Observer.Expect('true_descending', 'd3,d2,d1');
+        Observer.Expect('true_ascending', 'd1,d2,d3');
+        Observer.Expect('false_descending', 'd3,d2,d1');
+        Observer.Expect('true_grp_descending', 'd5,d3,d1,d4,d2');
+        Observer.Expect('left', '<none>');
+        Observer.Verify();
     end;
 
     // OnDelete, table extension triggers, subscribers, OnGlobalDelete and OnDatabaseDelete together: primary key.
@@ -495,7 +540,12 @@ codeunit 90667 "DRO Probe"
         Row.DeleteAll(true);
         Observer.Observe('true_descending_filter', Log.Take());
         Observer.Observe('true_descending_filter|left', Left(Database::"DRO All Row"));
-        Observer.Finish();
+        Observer.Expect('true_descending', 'B3/Yes,xB3,T3,xT3,d3,xA3,A3/Yes,B2/Yes,xB2,T2,xT2,d2,xA2,A2/Yes,B1/Yes,xB1,T1,xT1,d1,xA1,A1/Yes');
+        Observer.Expect('true_ascending', 'B1/Yes,xB1,T1,xT1,d1,xA1,A1/Yes,B2/Yes,xB2,T2,xT2,d2,xA2,A2/Yes,B3/Yes,xB3,T3,xT3,d3,xA3,A3/Yes');
+        Observer.Expect('false_descending', 'B3/No,d3,A3/No,B2/No,d2,A2/No,B1/No,d1,A1/No');
+        Observer.Expect('true_descending_filter', 'B4/Yes,xB4,T4,xT4,d4,xA4,A4/Yes,B3/Yes,xB3,T3,xT3,d3,xA3,A3/Yes,B2/Yes,xB2,T2,xT2,d2,xA2,A2/Yes');
+        Observer.Expect('true_descending_filter|left', '1,5');
+        Observer.Verify();
     end;
 
     // Control for the row code of the table with all of it: one Delete(true) and one Delete(false) of a single row
@@ -513,7 +563,9 @@ codeunit 90667 "DRO Probe"
         Row.Get(2);
         Row.Delete(false);
         Observer.Observe('delete_false', Log.Take());
-        Observer.Finish();
+        Observer.Expect('delete_true', 'B1/Yes,xB1,T1,xT1,d1,xA1,A1/Yes');
+        Observer.Expect('delete_false', 'B2/No,d2,A2/No');
+        Observer.Verify();
     end;
 
     // All row code together: secondary key, temporary record, RecordRef.
@@ -555,6 +607,11 @@ codeunit 90667 "DRO Probe"
         RecRef.DeleteAll(true);
         Observer.Observe('recordref_true_descending', Log.Take());
         Observer.Observe('left', Left(Database::"DRO All Row"));
-        Observer.Finish();
+        Observer.Expect('true_grp_descending', 'B5/Yes,xB5,T5,xT5,d5,xA5,A5/Yes,B3/Yes,xB3,T3,xT3,d3,xA3,A3/Yes,B1/Yes,xB1,T1,xT1,d1,xA1,A1/Yes,B4/Yes,xB4,T4,xT4,d4,xA4,A4/Yes,B2/Yes,xB2,T2,xT2,d2,xA2,A2/Yes');
+        Observer.Expect('true_grp_ascending', 'B2/Yes,xB2,T2,xT2,d2,xA2,A2/Yes,B4/Yes,xB4,T4,xT4,d4,xA4,A4/Yes,B1/Yes,xB1,T1,xT1,d1,xA1,A1/Yes,B3/Yes,xB3,T3,xT3,d3,xA3,A3/Yes,B5/Yes,xB5,T5,xT5,d5,xA5,A5/Yes');
+        Observer.Expect('temporary_true_descending', 'B3/Yes,xB3,T3,xT3,xA3,A3/Yes,B2/Yes,xB2,T2,xT2,xA2,A2/Yes,B1/Yes,xB1,T1,xT1,xA1,A1/Yes');
+        Observer.Expect('recordref_true_descending', 'B3/Yes,xB3,T3,xT3,d3,xA3,A3/Yes,B2/Yes,xB2,T2,xT2,d2,xA2,A2/Yes,B1/Yes,xB1,T1,xT1,d1,xA1,A1/Yes');
+        Observer.Expect('left', '<none>');
+        Observer.Verify();
     end;
 }
