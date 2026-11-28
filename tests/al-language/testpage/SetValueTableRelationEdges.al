@@ -24,7 +24,7 @@
 //   Measured on a local BC 29.0.54011.57673 (Linux, W1, en-US session); on BC 27.5 this pull request's CI observe run 46169003904
 //   gave the same readings, both 27.5 legs alike (the 1043 session texts included), so they hold on every version with no
 //   version guard. The review cells (SqlDataType_Prefix100, LongTextVar_*, IfRelation_Kind2Prefix, CodeName_NoRow,
-//   CodeName_Blank, TextVar_IntegerPrefixRow): observe round, every one ends with Observer.Finish(); nothing is asserted yet.
+//   CodeName_Blank, TextVar_IntegerPrefixRow): BC 28 and later assert the local BC 29 readings; on BC 27.5 they are an observe round.
 // BC versions: 27, 28, 29 by CI
 table 73220 "LT TSG ML Book"
 {
@@ -713,7 +713,13 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer.Observe('set', Outcome(TrySetSql(TP, '1')));
         Observer.Observe('value', TP.BookCtl.Value());
         TP.Close();
+#if BC28PLUS
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', '12');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // A Text[30] variable related to the Code[10] key, typed 11 characters: no row, and a text that a row (MNO) starts.
@@ -735,7 +741,13 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         LongTextCell(Observer, 'ABCDEFGHIJK');
+#if BC28PLUS
+        Observer.Expect('set', 'E: Validation error for Field: BookCtl,  Message = ''The length of the string is 11, but it must be less than or equal to 10 characters. Value: ABCDEFGHIJK'' | TestValidation');
+        Observer.Expect('value', '');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -744,7 +756,13 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         LongTextCell(Observer, 'MNOPQRSTUVW');
+#if BC28PLUS
+        Observer.Expect('set', 'E: Validation error for Field: BookCtl,  Message = ''The length of the string is 11, but it must be less than or equal to 10 characters. Value: MNOPQRSTUVW'' | TestValidation');
+        Observer.Expect('value', '');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // The if relation's else branch typed as a prefix: Kind 2, 'cb' (the row CB1).
@@ -754,7 +772,14 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         IfHostCell(Observer, 2, 'cb');
+#if BC28PLUS
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', 'CB1');
+        Observer.Expect('stored', 'CB1');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // The Code[30] variable related to Name: no row, and blank.
@@ -776,7 +801,13 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         CodeNameCell(Observer, 'zzz');
+#if BC28PLUS
+        Observer.Expect('set', 'E: Validation error for Field: BookCtl,  Message = ''The following field must be included into the table''s primary key: Field: Name Table: LT TSV Book'' | TestValidation');
+        Observer.Expect('value', '');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     [Test]
@@ -785,7 +816,13 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer: Codeunit "Probe Observer";
     begin
         CodeNameCell(Observer, '');
+#if BC28PLUS
+        Observer.Expect('set', 'E: Validation error for Field: BookCtl,  Message = ''The following field must be included into the table''s primary key: Field: Name Table: LT TSV Book'' | TestValidation');
+        Observer.Expect('value', '');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 
     // SetValue(5) with only a row 50.
@@ -801,6 +838,12 @@ codeunit 73220 "LT TSG SetValue Tests"
         Observer.Observe('set', Outcome(TrySetTextInteger(TP, 5)));
         Observer.Observe('value', TP.BookCtl.Value());
         TP.Close();
+#if BC28PLUS
+        Observer.Expect('set', 'ok');
+        Observer.Expect('value', '50');
+        Observer.Verify();
+#else // BC 27.5: observe round, red on purpose; not measured on 27.5 yet
         Observer.Finish();
+#endif
     end;
 }
