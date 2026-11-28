@@ -498,6 +498,24 @@ codeunit 90667 "DRO Probe"
         Observer.Finish();
     end;
 
+    // Control for the row code of the table with all of it: one Delete(true) and one Delete(false) of a single row
+    // (does OnGlobalDelete run for a single Delete where DeleteAll does not call it).
+    [Test]
+    procedure AllRowCode_SingleDelete_Control()
+    var
+        Row: Record "DRO All Row";
+        Observer: Codeunit "Probe Observer";
+    begin
+        Seed(Database::"DRO All Row", 2);
+        Row.Get(1);
+        Row.Delete(true);
+        Observer.Observe('delete_true', Log.Take());
+        Row.Get(2);
+        Row.Delete(false);
+        Observer.Observe('delete_false', Log.Take());
+        Observer.Finish();
+    end;
+
     // All row code together: secondary key, temporary record, RecordRef.
     [Test]
     procedure AllRowCode_OtherForms_Order()
