@@ -1,8 +1,8 @@
 // BC Documentation: https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/methods-auto/decimal/decimal-data-type
 // Scope: in-scope
-// Fixtures used: Probe Observer (69160); the helper codeunit 73590 ("LT DOV Probe", its Max and Show) of DecimalOverflowCells.al;
-//   own table 73110, helper codeunit 73110, test codeunit 73111
-// local object: the table holds the Decimal field whose range check is under test.
+// Fixtures used: Probe Observer (69160); table 73590 ("LT DOV Row") and helper codeunit 73590 ("LT DOV Probe", its Max and Show)
+//   of DecimalOverflowCells.al; own helper codeunit 73110, test codeunit 73111
+// local object: the helper codeunit runs each cell in a TryFunction and reads the target after it.
 // Probe (follow-up of corpus pull request 1630, DecimalOverflowCells.al; AL Runner issues 9267 and 9269, the cells AL Runner pull
 //   request 9471 needs): Decimal arithmetic at the limit of the Decimal type, MAX18 = 79228162514264337500000000000 (what the literal
 //   79228162514264337593543950335.0 holds), and the range check of a record Decimal field. Cells:
@@ -16,25 +16,21 @@
 //   - field range: Validate, FieldRef.Value, FieldRef.Validate and a temporary record past +-999,999,999,999,999.99, and the value
 //     999,999,999,999,999.995 (a variable, Format(D, 0, 9) evaluated back into the target, a field, Validate, FieldRef and a
 //     temporary record).
+//   Review cells of corpus pull request 1669 and AL Runner pull request 9471 (tests Overflow_Negative3 and later): the remaining sign
+//   pairs; - and / just past the .NET maximum; one cell per * triple (Decimal, Integer, BigInteger on either side, each sign pair)
+//   at 138753349412021607000000000 * 571 = 79228162514264337597000000000; negative round-down compared with -MAX18; compound
+//   assignments (+=, -=, *=, /=) with an in-range start and an out-of-range result, on a variable, a field and a temporary field;
+//   a var argument the callee sets past the field range, sets past and back, or leaves; and the 29-digit literal straight in an
+//   expression (literal_minus_max18, the literal minus the 18-digit literal, and literal_minus_varmax18, the literal minus a
+//   variable holding MAX18, are 0 when the literal holds MAX18; max_minus_max18 is the same for the held Max(); the literal times
+//   10 does not compile: AL0371 'The operation overflows at compile time.', AL compiler 18.0).
 //   Each cell presets its target to 1, runs in a TryFunction and records "ok: <target>" or "E: <GetLastErrorText> |
 //   <GetLastErrorCode>; after <target>", the target's value after the error. A value outside the range Format accepts is shown as
 //   'big <value / 10^15> e15' (Show of DecimalOverflowCells.al).
 //   Measured on a local BC 29.0.54011.57673 (Linux, W1, en-US session); on BC 27.5 this pull request's CI observe run 46168137059
-//   gave the same readings, both 27.5 legs alike, so they hold on every version with no version guard.
+//   gave the same readings, both 27.5 legs alike, so they hold on every version with no version guard. The review cells (tests
+//   Overflow_Negative3 and later): observe round, every one ends with Observer.Finish(); nothing is asserted yet.
 // BC versions: 27, 28, 29 by CI
-table 73110 "LT DOX Row"
-{
-    DataClassification = SystemMetadata;
-
-    fields
-    {
-        field(1; Id; Integer) { }
-        field(2; Amount; Decimal) { }
-    }
-
-    keys { key(PK; Id) { Clustered = true; } }
-}
-
 codeunit 73110 "LT DOX Probe"
 {
     var
@@ -42,7 +38,7 @@ codeunit 73110 "LT DOX Probe"
 
     // The target of a cell: the variable R, the field Row.Amount, the temporary field TempRow.Amount, or the FieldRef FR.
     [TryFunction]
-    local procedure TryCell(Cell: Text; var R: Decimal; var Row: Record "LT DOX Row"; var TempRow: Record "LT DOX Row" temporary; var FR: FieldRef)
+    local procedure TryCell(Cell: Text; var R: Decimal; var Row: Record "LT DOV Row"; var TempRow: Record "LT DOV Row" temporary; var FR: FieldRef)
     var
         D: Decimal;
         E: Decimal;
@@ -50,6 +46,10 @@ codeunit 73110 "LT DOX Probe"
         N: Integer;
         Du: Duration;
     begin
+        if Cell.StartsWith('mulx_') then begin
+            MulX(Cell, R);
+            exit;
+        end;
         case Cell of
             // Overflow.
             'div_negmax_half':
@@ -205,6 +205,12 @@ codeunit 73110 "LT DOX Probe"
                     B := 93543950336L;
                     R := D + B;
                 end;
+            'add_big_max18':
+                begin
+                    B := 60000000000L;
+                    D := 79228162514264337500000000000.0;
+                    R := B + D;
+                end;
             // Controls of the equality cells: results that are not MAX18.
             'mul_rounddown_ctrl':
                 begin
@@ -218,11 +224,199 @@ codeunit 73110 "LT DOX Probe"
                     B := 100000000000L;
                     R := D - B;
                 end;
-            'add_big_max18':
+            // Sign pairs (review of corpus pull request 1669, point 2).
+            'div_negmax_neghalf':
                 begin
-                    B := 60000000000L;
+                    D := -Dov.Max();
+                    R := D / -0.5;
+                end;
+            'mul_negmax_decneg10':
+                begin
+                    D := -Dov.Max();
+                    E := -10;
+                    R := D * E;
+                end;
+            'mul_intneg10_negmax':
+                begin
+                    N := -10;
+                    D := -Dov.Max();
+                    R := N * D;
+                end;
+            'mul_max_bigneg10':
+                begin
+                    D := Dov.Max();
+                    B := -10;
+                    R := D * B;
+                end;
+            'mul_negmax_bigneg10':
+                begin
+                    D := -Dov.Max();
+                    B := -10;
+                    R := D * B;
+                end;
+            'mul_big10_negmax':
+                begin
+                    B := 10;
+                    D := -Dov.Max();
+                    R := B * D;
+                end;
+            'mul_bigneg10_negmax':
+                begin
+                    B := -10;
+                    D := -Dov.Max();
+                    R := B * D;
+                end;
+            'div_intneg_tiny':
+                begin
+                    N := -2147483647;
+                    E := 0.00000000000000000001;
+                    R := N / E;
+                end;
+            'div_bigneg_tiny':
+                begin
+                    B := -9223372036854775807L;
+                    E := 0.0000000001;
+                    R := B / E;
+                end;
+            'div_durneg_tiny':
+                begin
+                    B := -9223372036854775807L;
+                    Du := B;
+                    E := 0.0000000001;
+                    R := Du / E;
+                end;
+            'add_big93543950336_max18':
+                begin
+                    B := 93543950336L;
                     D := 79228162514264337500000000000.0;
                     R := B + D;
+                end;
+            'sub_negmax18_big93543950336':
+                begin
+                    D := -79228162514264337500000000000.0;
+                    B := 93543950336L;
+                    R := D - B;
+                end;
+            // Just past the .NET maximum for - and / (point 3; Decimal * Integer is mulx_di_pp).
+            'div_max18_0999999999999999998':
+                begin
+                    D := 79228162514264337500000000000.0;
+                    E := 0.999999999999999998;
+                    R := D / E;
+                end;
+            'sub_negmax18_93543950336':
+                begin
+                    D := -79228162514264337500000000000.0;
+                    R := D - 93543950336.0;
+                end;
+            // Negative round-down (point 4) and its control.
+            'mul_rounddown_neg_int14':
+                begin
+                    D := -5659154465304595540000000000.0;
+                    N := 14;
+                    R := D * N;
+                end;
+            'div_rounddown_neg_07':
+                begin
+                    D := -55459713759985036300000000000.0;
+                    E := 0.7;
+                    R := D / E;
+                end;
+            'sub_negmax18_big60000000000':
+                begin
+                    D := -79228162514264337500000000000.0;
+                    B := 60000000000L;
+                    R := D - B;
+                end;
+            'add_bigneg60000000000_negmax18':
+                begin
+                    B := -60000000000L;
+                    D := -79228162514264337500000000000.0;
+                    R := B + D;
+                end;
+            'add_negmax18_big100000000000':
+                begin
+                    D := -79228162514264337500000000000.0;
+                    B := 100000000000L;
+                    R := D + B;
+                end;
+            // Compound assignments: an in-range start, an out-of-range result (review of AL Runner pull request 9471).
+            'plusassign_5e28':
+                begin
+                    R := 50000000000000000000000000000.0;
+                    R += 50000000000000000000000000000.0;
+                end;
+            'minusassign_neg5e28':
+                begin
+                    R := -50000000000000000000000000000.0;
+                    R -= 50000000000000000000000000000.0;
+                end;
+            'mulassign_5e28':
+                begin
+                    R := 50000000000000000000000000000.0;
+                    R *= 2;
+                end;
+            'divassign_5e28':
+                begin
+                    R := 50000000000000000000000000000.0;
+                    R /= 0.5;
+                end;
+            'field_plusassign_9e14':
+                begin
+                    Row.Amount := 900000000000000.0;
+                    Row.Amount += 900000000000000.0;
+                end;
+            'field_minusassign_neg9e14':
+                begin
+                    Row.Amount := -900000000000000.0;
+                    Row.Amount -= 900000000000000.0;
+                end;
+            'field_mulassign_9e14':
+                begin
+                    Row.Amount := 900000000000000.0;
+                    Row.Amount *= 2;
+                end;
+            'field_divassign_9e14':
+                begin
+                    Row.Amount := 900000000000000.0;
+                    Row.Amount /= 0.5;
+                end;
+            'temp_plusassign_9e14':
+                begin
+                    TempRow.Amount := 900000000000000.0;
+                    TempRow.Amount += 900000000000000.0;
+                end;
+            // A var argument: the callee sets it past the field range, sets it past and back, or leaves it.
+            'field_varset_1e16':
+                SetTo(Row.Amount, 10000000000000000.0);
+            'field_varset_back':
+                SetPastAndBack(Row.Amount);
+            'field_varleave':
+                LeaveIt(Row.Amount);
+            'temp_varset_1e16':
+                SetTo(TempRow.Amount, 10000000000000000.0);
+            'varset_1e16':
+                SetTo(R, 10000000000000000.0);
+            // The 29-digit literal straight in an expression.
+            'literal_times_1':
+                R := 79228162514264337593543950335.0 * 1;
+            'literal_plus_0':
+                R := 79228162514264337593543950335.0 + 0;
+            'literal_neg_times_1':
+                R := -79228162514264337593543950335.0 * 1;
+            'literal_minus_max18':
+                R := 79228162514264337593543950335.0 - 79228162514264337500000000000.0;
+            'literal_assign':
+                R := 79228162514264337593543950335.0;
+            'literal_minus_varmax18':
+                begin
+                    D := 79228162514264337500000000000.0;
+                    R := 79228162514264337593543950335.0 - D;
+                end;
+            'max_minus_max18':
+                begin
+                    D := Dov.Max();
+                    R := D - 79228162514264337500000000000.0;
                 end;
             // Field range.
             'field_validate_1e15':
@@ -252,6 +446,7 @@ codeunit 73110 "LT DOX Probe"
                 TempRow.Validate(Amount, 1000000000000000.0);
             'var_995':
                 R := 999999999999999.995;
+            // Format(D, 0, 9) and Evaluate run in one cell: the cell does not tell which of the two calls raises.
             'format_995':
                 begin
                     D := 999999999999999.995;
@@ -275,10 +470,80 @@ codeunit 73110 "LT DOX Probe"
         end;
     end;
 
+    // mulx_<pair>_<signs>: 138753349412021607000000000 times 571, exact 79228162514264337597000000000, just above the .NET maximum.
+    // <pair> is the left and right type: d = Decimal, i = Integer, b = BigInteger; <signs> the left and right sign: p or n.
+    local procedure MulX(Cell: Text; var R: Decimal)
+    var
+        D: Decimal;
+        E: Decimal;
+        B: BigInteger;
+        N: Integer;
+        Pair: Text;
+        SL: Integer;
+        SR: Integer;
+    begin
+        Pair := CopyStr(Cell, 6, 2);
+        SL := 1;
+        SR := 1;
+        if CopyStr(Cell, 9, 1) = 'n' then
+            SL := -1;
+        if CopyStr(Cell, 10, 1) = 'n' then
+            SR := -1;
+        case Pair of
+            'di':
+                begin
+                    D := 138753349412021607000000000.0 * SL;
+                    N := 571 * SR;
+                    R := D * N;
+                end;
+            'id':
+                begin
+                    N := 571 * SL;
+                    D := 138753349412021607000000000.0 * SR;
+                    R := N * D;
+                end;
+            'db':
+                begin
+                    D := 138753349412021607000000000.0 * SL;
+                    B := 571 * SR;
+                    R := D * B;
+                end;
+            'bd':
+                begin
+                    B := 571 * SL;
+                    D := 138753349412021607000000000.0 * SR;
+                    R := B * D;
+                end;
+            'dd':
+                begin
+                    D := 138753349412021607000000000.0 * SL;
+                    E := 571 * SR;
+                    R := D * E;
+                end;
+        end;
+    end;
+
+    local procedure SetTo(var X: Decimal; V: Decimal)
+    begin
+        X := V;
+    end;
+
+    local procedure SetPastAndBack(var X: Decimal)
+    begin
+        X := 10000000000000000.0;
+        X := 5;
+    end;
+
+    local procedure LeaveIt(var X: Decimal)
+    begin
+        if X = 0 then
+            Error('not reached');
+    end;
+
     procedure Cell(var Observer: Codeunit "Probe Observer"; Name: Text)
     var
-        Row: Record "LT DOX Row";
-        TempRow: Record "LT DOX Row" temporary;
+        Row: Record "LT DOV Row";
+        TempRow: Record "LT DOV Row" temporary;
         RR: RecordRef;
         FR: FieldRef;
         R: Decimal;
@@ -288,7 +553,7 @@ codeunit 73110 "LT DOX Probe"
         R := 1;
         Row.Amount := 1;
         TempRow.Amount := 1;
-        RR.Open(Database::"LT DOX Row");
+        RR.Open(Database::"LT DOV Row");
         FR := RR.Field(2);
         FR.Value := 1;
         ClearLastError();
@@ -315,15 +580,15 @@ codeunit 73110 "LT DOX Probe"
     // the Max of DecimalOverflowCells.al builds it (the literal 79228162514264337593543950335.0) and as the 18-digit literal.
     procedure EqualCell(var Observer: Codeunit "Probe Observer"; Name: Text)
     var
-        Row: Record "LT DOX Row";
-        TempRow: Record "LT DOX Row" temporary;
+        Row: Record "LT DOV Row";
+        TempRow: Record "LT DOV Row" temporary;
         RR: RecordRef;
         FR: FieldRef;
         R: Decimal;
         Ok: Boolean;
     begin
         R := 1;
-        RR.Open(Database::"LT DOX Row");
+        RR.Open(Database::"LT DOV Row");
         FR := RR.Field(2);
         ClearLastError();
         Ok := TryCell(Name, R, Row, TempRow, FR);
@@ -331,6 +596,26 @@ codeunit 73110 "LT DOX Probe"
         RR.Close();
         Observer.Observe(Name + '_eq', StrSubstNo('ok=%1; R = Max()=%2; R = 79228162514264337500000000000=%3', Ok, R = Dov.Max(),
             R = 79228162514264337500000000000.0));
+    end;
+    // As EqualCell, against -MAX18: -Max() and the 18-digit literal.
+    procedure NegEqualCell(var Observer: Codeunit "Probe Observer"; Name: Text)
+    var
+        Row: Record "LT DOV Row";
+        TempRow: Record "LT DOV Row" temporary;
+        RR: RecordRef;
+        FR: FieldRef;
+        R: Decimal;
+        Ok: Boolean;
+    begin
+        R := 1;
+        RR.Open(Database::"LT DOV Row");
+        FR := RR.Field(2);
+        ClearLastError();
+        Ok := TryCell(Name, R, Row, TempRow, FR);
+        ClearLastError();
+        RR.Close();
+        Observer.Observe(Name + '_eq', StrSubstNo('ok=%1; R = -Max()=%2; R = -79228162514264337500000000000=%3', Ok, R = -Dov.Max(),
+            R = -79228162514264337500000000000.0));
     end;
 }
 
@@ -533,5 +818,205 @@ codeunit 73111 "LT DOX Overflow Tests"
         Observer.Expect('temp_assign_995', 'E: The value of Decimal parameter  is outside of the permitted range. The current value is: 999,999,999,999,999.995. The permitted range is: from -999,999,999,999,999.99 to 999,999,999,999,999.99. | OutsidePermittedRange; after 1');
         Observer.Expect('field_assign_99', 'ok: 999999999999999.99');
         Observer.Verify();
+    end;
+
+    // The sign pairs the earlier tests leave out.
+    [Test]
+    procedure Overflow_Negative3()
+    var
+        Observer: Codeunit "Probe Observer";
+        Probe: Codeunit "LT DOX Probe";
+    begin
+        Probe.Cell(Observer, 'div_negmax_neghalf');
+        Probe.Cell(Observer, 'mul_negmax_decneg10');
+        Probe.Cell(Observer, 'mul_intneg10_negmax');
+        Probe.Cell(Observer, 'mul_max_bigneg10');
+        Probe.Cell(Observer, 'mul_negmax_bigneg10');
+        Probe.Cell(Observer, 'mul_big10_negmax');
+        Probe.Cell(Observer, 'mul_bigneg10_negmax');
+        Observer.Finish();
+    end;
+
+    [Test]
+    procedure Overflow_Negative4()
+    var
+        Observer: Codeunit "Probe Observer";
+        Probe: Codeunit "LT DOX Probe";
+    begin
+        Probe.Cell(Observer, 'div_intneg_tiny');
+        Probe.Cell(Observer, 'div_bigneg_tiny');
+        Probe.Cell(Observer, 'div_durneg_tiny');
+        Probe.Cell(Observer, 'add_big93543950336_max18');
+        Probe.Cell(Observer, 'sub_negmax18_big93543950336');
+        Observer.Finish();
+    end;
+
+    [Test]
+    procedure Overflow_JustPastNetMax()
+    var
+        Observer: Codeunit "Probe Observer";
+        Probe: Codeunit "LT DOX Probe";
+    begin
+        Probe.Cell(Observer, 'div_max18_0999999999999999998');
+        Probe.Cell(Observer, 'sub_negmax18_93543950336');
+        Observer.Finish();
+    end;
+
+    // One cell per * triple (types and signs) just above the .NET maximum.
+    [Test]
+    procedure Multiply_Triples1()
+    var
+        Observer: Codeunit "Probe Observer";
+        Probe: Codeunit "LT DOX Probe";
+    begin
+        Probe.Cell(Observer, 'mulx_di_pp');
+        Probe.Cell(Observer, 'mulx_di_np');
+        Probe.Cell(Observer, 'mulx_di_pn');
+        Probe.Cell(Observer, 'mulx_di_nn');
+        Probe.Cell(Observer, 'mulx_id_pp');
+        Probe.Cell(Observer, 'mulx_id_np');
+        Probe.Cell(Observer, 'mulx_id_pn');
+        Probe.Cell(Observer, 'mulx_id_nn');
+        Observer.Finish();
+    end;
+
+    [Test]
+    procedure Multiply_Triples2()
+    var
+        Observer: Codeunit "Probe Observer";
+        Probe: Codeunit "LT DOX Probe";
+    begin
+        Probe.Cell(Observer, 'mulx_db_pp');
+        Probe.Cell(Observer, 'mulx_db_np');
+        Probe.Cell(Observer, 'mulx_db_pn');
+        Probe.Cell(Observer, 'mulx_db_nn');
+        Probe.Cell(Observer, 'mulx_bd_pp');
+        Probe.Cell(Observer, 'mulx_bd_np');
+        Probe.Cell(Observer, 'mulx_bd_pn');
+        Probe.Cell(Observer, 'mulx_bd_nn');
+        Observer.Finish();
+    end;
+
+    [Test]
+    procedure Multiply_Triples3()
+    var
+        Observer: Codeunit "Probe Observer";
+        Probe: Codeunit "LT DOX Probe";
+    begin
+        Probe.Cell(Observer, 'mulx_dd_pp');
+        Probe.Cell(Observer, 'mulx_dd_np');
+        Probe.Cell(Observer, 'mulx_dd_pn');
+        Probe.Cell(Observer, 'mulx_dd_nn');
+        Observer.Finish();
+    end;
+
+    // Negative round-down; add_negmax18_big100000000000 is the control that is not -MAX18.
+    [Test]
+    procedure RoundDown_Negative()
+    var
+        Observer: Codeunit "Probe Observer";
+        Probe: Codeunit "LT DOX Probe";
+    begin
+        Probe.Cell(Observer, 'mul_rounddown_neg_int14');
+        Probe.Cell(Observer, 'div_rounddown_neg_07');
+        Probe.Cell(Observer, 'sub_negmax18_big60000000000');
+        Probe.Cell(Observer, 'add_bigneg60000000000_negmax18');
+        Probe.Cell(Observer, 'add_negmax18_big100000000000');
+        Observer.Finish();
+    end;
+
+    [Test]
+    procedure RoundDown_NegativeEquality()
+    var
+        Observer: Codeunit "Probe Observer";
+        Probe: Codeunit "LT DOX Probe";
+    begin
+        Probe.NegEqualCell(Observer, 'mul_rounddown_neg_int14');
+        Probe.NegEqualCell(Observer, 'div_rounddown_neg_07');
+        Probe.NegEqualCell(Observer, 'sub_negmax18_big60000000000');
+        Probe.NegEqualCell(Observer, 'add_bigneg60000000000_negmax18');
+        Probe.NegEqualCell(Observer, 'add_negmax18_big100000000000');
+        Observer.Finish();
+    end;
+
+    // Compound assignments with an in-range start and an out-of-range result.
+    [Test]
+    procedure Compound_Variable()
+    var
+        Observer: Codeunit "Probe Observer";
+        Probe: Codeunit "LT DOX Probe";
+    begin
+        Probe.Cell(Observer, 'plusassign_5e28');
+        Probe.Cell(Observer, 'minusassign_neg5e28');
+        Probe.Cell(Observer, 'mulassign_5e28');
+        Probe.Cell(Observer, 'divassign_5e28');
+        Observer.Finish();
+    end;
+
+    [Test]
+    procedure Compound_Field1()
+    var
+        Observer: Codeunit "Probe Observer";
+        Probe: Codeunit "LT DOX Probe";
+    begin
+        Probe.Cell(Observer, 'field_plusassign_9e14');
+        Probe.Cell(Observer, 'field_minusassign_neg9e14');
+        Probe.Cell(Observer, 'field_mulassign_9e14');
+        Observer.Finish();
+    end;
+
+    [Test]
+    procedure Compound_Field2()
+    var
+        Observer: Codeunit "Probe Observer";
+        Probe: Codeunit "LT DOX Probe";
+    begin
+        Probe.Cell(Observer, 'field_divassign_9e14');
+        Probe.Cell(Observer, 'temp_plusassign_9e14');
+        Observer.Finish();
+    end;
+
+    // A var argument the callee sets past the field range, sets past and back, or leaves.
+    [Test]
+    procedure VarArgument_Cells()
+    var
+        Observer: Codeunit "Probe Observer";
+        Probe: Codeunit "LT DOX Probe";
+    begin
+        Probe.Cell(Observer, 'field_varset_1e16');
+        Probe.Cell(Observer, 'field_varset_back');
+        Probe.Cell(Observer, 'field_varleave');
+        Probe.Cell(Observer, 'temp_varset_1e16');
+        Probe.Cell(Observer, 'varset_1e16');
+        Observer.Finish();
+    end;
+
+    // Whether the literal results equal MAX18 (Max() and the 18-digit literal), and the held Max() minus MAX18 as a control.
+    [Test]
+    procedure Literal_Equality()
+    var
+        Observer: Codeunit "Probe Observer";
+        Probe: Codeunit "LT DOX Probe";
+    begin
+        Probe.EqualCell(Observer, 'literal_assign');
+        Probe.EqualCell(Observer, 'literal_times_1');
+        Probe.EqualCell(Observer, 'literal_plus_0');
+        Probe.Cell(Observer, 'literal_minus_varmax18');
+        Probe.Cell(Observer, 'max_minus_max18');
+        Observer.Finish();
+    end;
+
+    // The 29-digit literal straight in an expression.
+    [Test]
+    procedure Literal_Cells()
+    var
+        Observer: Codeunit "Probe Observer";
+        Probe: Codeunit "LT DOX Probe";
+    begin
+        Probe.Cell(Observer, 'literal_times_1');
+        Probe.Cell(Observer, 'literal_plus_0');
+        Probe.Cell(Observer, 'literal_neg_times_1');
+        Probe.Cell(Observer, 'literal_minus_max18');
+        Observer.Finish();
     end;
 }
