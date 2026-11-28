@@ -1717,3 +1717,6 @@ stem	area
 3871-integer-plus-assign-returned-fieldref-value	recordref-fieldref
 3872-integer-plus-assign-global-fieldref-value	recordref-fieldref
 3873-named-return-value-plus-assign-fieldref-value	recordref-fieldref
+3874-integer-plus-assign-named-return-fieldref-value	recordref-fieldref
+3875-integer-plus-assign-var-fieldref-parameter-value	recordref-fieldref
+3876-page-run-recordref-named-return	recordref-fieldref
